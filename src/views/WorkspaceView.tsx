@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import {
   Layers,
   Plus,
@@ -12,6 +13,7 @@ import {
   Terminal,
   Trash2,
   Sparkles,
+  X,
 } from "lucide-react";
 import { WorkspaceItem } from "../types";
 import {
@@ -23,6 +25,7 @@ import {
   generateChatGptPrompt,
   openPathInExplorer,
 } from "../api";
+import { useTranslation } from "../i18n";
 
 interface WorkspaceViewProps {
   workspaces: WorkspaceItem[];
@@ -37,6 +40,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   onRefresh,
   onOpenTerminalForWorkspace,
 }) => {
+  const { t, locale } = useTranslation();
   const [showAddModal, setShowAddModal] = useState(false);
   const [newPath, setNewPath] = useState("");
   const [newName, setNewName] = useState("");
@@ -51,9 +55,41 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   // Loading state per workspace action
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
+  const formatGitStatus = (rawStatus: string | null | undefined): string | null => {
+    if (!rawStatus) return null;
+    const lower = rawStatus.toLowerCase();
+    if (lower.includes("clean") || rawStatus.includes("干净")) {
+      return t("workspace_view.git_clean");
+    }
+    const match = rawStatus.match(/\d+/);
+    if (match && (rawStatus.includes("未提交") || lower.includes("uncommitted"))) {
+      return t("workspace_view.uncommitted_changes", { count: match[0] });
+    }
+    return rawStatus;
+  };
+
+  const handleSelectDirectory = async () => {
+    try {
+      const selectedPath = await open({
+        directory: true,
+        multiple: false,
+        title: t("workspace_view.folder_picker_title"),
+      });
+
+      if (selectedPath) {
+        setNewPath(selectedPath);
+        setAddingError(null);
+      }
+    } catch (err) {
+      setAddingError(
+        t("workspace_view.folder_picker_error", { error: String(err) })
+      );
+    }
+  };
+
   const handleAddWorkspace = async () => {
     if (!newPath.trim()) {
-      setAddingError("项目路径不能为空");
+      setAddingError(t("workspace_view.path_required"));
       return;
     }
     try {
@@ -75,7 +111,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     try {
       setActionLoadingId(id);
       await startWorkspaceSession(id);
-      onOpenTerminalForWorkspace(id, `工作区: ${name} (Pi Session)`);
+      onOpenTerminalForWorkspace(id, `${name} (Pi Session)`);
       await onRefresh();
     } catch (err) {
       console.error(err);
@@ -100,7 +136,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     try {
       setActionLoadingId(id);
       await restartWorkspaceSession(id);
-      onOpenTerminalForWorkspace(id, `工作区: ${name} (Pi Session)`);
+      onOpenTerminalForWorkspace(id, `${name} (Pi Session)`);
       await onRefresh();
     } catch (err) {
       console.error(err);
@@ -110,7 +146,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   };
 
   const handleRemove = async (id: string) => {
-    if (confirm("确定要移除该工作区吗？若正在运行将自动终止进程。")) {
+    if (confirm(t("workspace_view.remove_confirm"))) {
       try {
         await removeWorkspace(id);
         await onRefresh();
@@ -122,7 +158,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
 
   const handleOpenPromptModal = async (ws: WorkspaceItem) => {
     try {
-      const p = await generateChatGptPrompt(ws.path, ws.session_id);
+      const p = await generateChatGptPrompt(ws.path, ws.session_id, locale);
       setPromptText(p);
       setPromptModalWs(ws);
     } catch (err) {
@@ -143,14 +179,14 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold text-zinc-100">
-              本地项目工作区管理
+              {t("workspace_view.title")}
             </h2>
             <span className="text-xs font-mono text-zinc-500">
-              ({workspaces.length} 个项目)
+              {t("workspace_view.projects_count", { count: workspaces.length })}
             </span>
           </div>
           <p className="text-xs text-zinc-400 max-w-2xl">
-            每个项目对应一个专属的 Pi Session 进程。通过 Chappie MCP Broker，ChatGPT 网页版可根据项目路径或 Session ID 精确绑定并进行代码读写与执行，彻底隔绝项目上下文。
+            {t("workspace_view.banner_desc")}
           </p>
         </div>
 
@@ -159,7 +195,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
           className="flex items-center gap-2 px-4 py-2 rounded text-xs font-medium bg-zinc-100 hover:bg-white text-zinc-950 font-semibold shadow transition-all"
         >
           <Plus className="w-4 h-4" />
-          <span>添加项目工作区</span>
+          <span>{t("workspace_view.add_btn")}</span>
         </button>
       </div>
 
@@ -171,10 +207,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
           </div>
           <div className="space-y-1">
             <h3 className="text-sm font-medium text-zinc-200">
-              暂未添加任何本地工作区
+              {t("workspace_view.empty_title")}
             </h3>
             <p className="text-xs text-zinc-500 max-w-md mx-auto">
-              点击上方“添加项目工作区”按钮，输入本地代码工程目录（如 D:\work\NewsNook），即可一键拉起 Pi 开发会话。
+              {t("workspace_view.empty_desc")}
             </p>
           </div>
           <button
@@ -182,7 +218,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             className="px-4 py-2 rounded text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors inline-flex items-center gap-1.5"
           >
             <Plus className="w-4 h-4" />
-            <span>立即添加首个项目</span>
+            <span>{t("workspace_view.add_first_project")}</span>
           </button>
         </div>
       ) : (
@@ -211,12 +247,12 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                         {isRunning && (
                           <span className="flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 shrink-0 whitespace-nowrap">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                            Session 在线
+                            {t("workspace_view.session_online")}
                           </span>
                         )}
                         {!isRunning && (
                           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-500 border border-zinc-800 shrink-0 whitespace-nowrap">
-                            未启动
+                            {t("workspace_view.not_started")}
                           </span>
                         )}
                       </div>
@@ -227,7 +263,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                         <button
                           onClick={() => openPathInExplorer(ws.path)}
                           className="text-zinc-500 hover:text-zinc-300 transition-colors"
-                          title="在文件夹中打开"
+                          title={t("workspace_view.open_in_folder")}
                         >
                           <FolderOpen className="w-3.5 h-3.5" />
                         </button>
@@ -237,7 +273,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     <button
                       onClick={() => handleRemove(ws.id)}
                       className="p-1 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-900 transition-colors"
-                      title="移除工作区"
+                      title={t("workspace_view.remove_workspace")}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -248,14 +284,14 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     <div className="p-2 rounded bg-zinc-950/70 border border-zinc-800/80 space-y-0.5">
                       <div className="text-zinc-500 flex items-center gap-1">
                         <GitBranch className="w-3 h-3 text-zinc-400" />
-                        <span>Git 状态</span>
+                        <span>{t("workspace_view.git_status_label")}</span>
                       </div>
                       <div className="text-zinc-300 font-medium truncate">
-                        {ws.git_branch ? ws.git_branch : "无 Git 仓库"}
+                        {ws.git_branch ? ws.git_branch : t("workspace_view.no_git_repo")}
                       </div>
-                      {ws.git_status && (
+                      {formatGitStatus(ws.git_status) && (
                         <div className="text-[10px] text-zinc-400 truncate">
-                          {ws.git_status}
+                          {formatGitStatus(ws.git_status)}
                         </div>
                       )}
                     </div>
@@ -270,10 +306,16 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                         )}
                       </div>
                       <div className="text-zinc-300 font-medium truncate">
-                        {ws.session_id ? ws.session_id : isRunning ? "等待探测..." : "未激活"}
+                        {ws.session_id
+                          ? ws.session_id
+                          : isRunning
+                          ? t("workspace_view.waiting_probe")
+                          : t("workspace_view.not_activated")}
                       </div>
                       <div className="text-[10px] text-zinc-500">
-                        绑定的 ChatGPT: {ws.binding_count}
+                        {t("workspace_view.bound_chatgpt", {
+                          count: ws.binding_count,
+                        })}
                       </div>
                     </div>
                   </div>
@@ -289,7 +331,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                         className="px-3 py-1.5 rounded text-xs font-medium bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-300 border border-emerald-800/60 transition-colors flex items-center gap-1.5 disabled:opacity-50"
                       >
                         <Play className="w-3 h-3 text-emerald-400" />
-                        <span>启动 Pi Session</span>
+                        <span>{t("workspace_view.start_pi_session")}</span>
                       </button>
                     ) : (
                       <div className="flex items-center gap-1.5">
@@ -299,13 +341,13 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                           className="px-2.5 py-1.5 rounded text-xs font-medium bg-rose-950/40 hover:bg-rose-900/40 text-rose-300 border border-rose-800/60 transition-colors flex items-center gap-1.5 disabled:opacity-50"
                         >
                           <Square className="w-3 h-3 text-rose-400" />
-                          <span>停止</span>
+                          <span>{t("workspace_view.stop_session")}</span>
                         </button>
                         <button
                           onClick={() => handleRestart(ws.id, ws.name)}
                           disabled={isLoading}
                           className="p-1.5 rounded text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors disabled:opacity-50"
-                          title="重启 Session"
+                          title={t("workspace_view.restart_tooltip")}
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
                         </button>
@@ -316,11 +358,11 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                       onClick={() =>
                         onOpenTerminalForWorkspace(
                           ws.id,
-                          `工作区: ${ws.name} (Pi Session)`
+                          `${ws.name} (Pi Session)`
                         )
                       }
                       className="p-1.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors border border-transparent hover:border-zinc-700"
-                      title="查看实时终端输出"
+                      title={t("workspace_view.terminal_tooltip")}
                     >
                       <Terminal className="w-4 h-4" />
                     </button>
@@ -331,7 +373,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 hover:border-zinc-700 transition-colors"
                   >
                     <Sparkles className="w-3 h-3 text-amber-400" />
-                    <span>ChatGPT 指令</span>
+                    <span>{t("workspace_view.chatgpt_cmd_btn")}</span>
                   </button>
                 </div>
               </div>
@@ -344,14 +386,25 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       {showAddModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-dark-card border border-zinc-800 rounded-lg max-w-md w-full p-6 space-y-5 shadow-2xl animate-in zoom-in-95 duration-150">
-            <div className="space-y-1">
-              <h3 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
-                <Plus className="w-4 h-4 text-emerald-400" />
-                添加本地项目工作区
-              </h3>
-              <p className="text-xs text-zinc-400">
-                输入本地代码工程所在目录的绝对路径，系统将自动读取 Git 状态并准备 Pi Session。
-              </p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-emerald-400 shrink-0" />
+                  {t("workspace_view.add_modal_title")}
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  {t("workspace_view.add_modal_desc")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="shrink-0 p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-md transition-colors"
+                title={t("workspace_view.close_btn")}
+                aria-label="close"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             {addingError && (
@@ -363,24 +416,38 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs text-zinc-300 font-medium">
-                  项目根目录路径 (绝对路径)
+                  {t("workspace_view.project_path_label")}
                 </label>
-                <input
-                  type="text"
-                  placeholder="例如: D:\work\NewsNook"
-                  value={newPath}
-                  onChange={(e) => setNewPath(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-xs font-mono text-zinc-100 focus:outline-none focus:border-zinc-600"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder={t("workspace_view.project_path_placeholder")}
+                    value={newPath}
+                    onChange={(e) => {
+                      setNewPath(e.target.value);
+                      if (addingError) setAddingError(null);
+                    }}
+                    className="min-w-0 flex-1 bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-xs font-mono text-zinc-100 focus:outline-none focus:border-zinc-600"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSelectDirectory}
+                    className="shrink-0 inline-flex items-center gap-1.5 rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs font-medium text-zinc-200 transition-colors hover:border-zinc-600 hover:bg-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                    title={t("workspace_view.select_folder_tooltip")}
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    <span>{t("workspace_view.select_folder_btn")}</span>
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-xs text-zinc-300 font-medium">
-                  工作区名称 (可选，留空则使用文件夹名)
+                  {t("workspace_view.project_name_label")}
                 </label>
                 <input
                   type="text"
-                  placeholder="例如: NewsNook 核心系统"
+                  placeholder={t("workspace_view.project_name_placeholder")}
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-zinc-600"
@@ -393,14 +460,16 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
                 onClick={() => setShowAddModal(false)}
                 className="px-3 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
               >
-                取消
+                {t("workspace_view.close_btn")}
               </button>
               <button
                 onClick={handleAddWorkspace}
                 disabled={isSubmitting}
                 className="px-4 py-1.5 rounded text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-semibold disabled:opacity-50"
               >
-                {isSubmitting ? "正在添加..." : "添加并就绪"}
+                {isSubmitting
+                  ? t("workspace_view.adding_btn")
+                  : t("workspace_view.add_and_ready")}
               </button>
             </div>
           </div>
@@ -410,44 +479,65 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
       {/* ChatGPT Prompt Modal */}
       {promptModalWs && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-dark-card border border-zinc-800 rounded-lg max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
+          <div className="bg-dark-card border border-zinc-800 rounded-lg max-w-xl w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-0.5 min-w-0 flex-1">
                 <h3 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-400" />
-                  ChatGPT 官方推荐绑定提示词
+                  <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>{t("workspace_view.prompt_modal_title")}</span>
                 </h3>
-                <p className="text-xs text-zinc-400 font-mono">
-                  {promptModalWs.name} ({promptModalWs.path})
+                <p
+                  className="text-xs text-zinc-400 font-mono truncate"
+                  title={`${promptModalWs.name} (${promptModalWs.path})`}
+                >
+                  {promptModalWs.name}{" "}
+                  <span className="text-zinc-500">
+                    ({promptModalWs.path})
+                  </span>
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={() => setPromptModalWs(null)}
+                className="shrink-0 p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-md transition-colors"
+                title={t("workspace_view.close_btn")}
+                aria-label="close"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             <div className="p-3 rounded bg-zinc-950 border border-zinc-800/80 font-mono text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed select-text max-h-72 overflow-y-auto">
               {promptText}
             </div>
 
-            <div className="flex items-center justify-between pt-1">
-              <p className="text-[11px] text-zinc-500">
-                将此内容直接发送给 ChatGPT 网页版，即可以防误触方式精确连接本项目。
+            <div className="flex items-center justify-between gap-4 pt-1">
+              <p className="text-[11px] text-zinc-400 min-w-0 flex-1">
+                {t("workspace_view.prompt_send_hint")}
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
+                  type="button"
                   onClick={() => setPromptModalWs(null)}
-                  className="px-3 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                  className="px-3 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 shrink-0 whitespace-nowrap transition-colors"
                 >
-                  关闭
+                  {t("workspace_view.close_btn")}
                 </button>
                 <button
+                  type="button"
                   onClick={handleCopyPrompt}
-                  className="px-3.5 py-1.5 rounded text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-semibold flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 rounded text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-semibold flex items-center gap-1.5 shrink-0 whitespace-nowrap transition-colors shadow-sm"
                 >
                   {copiedPrompt ? (
-                    <Check className="w-3.5 h-3.5" />
+                    <Check className="w-3.5 h-3.5 shrink-0" />
                   ) : (
-                    <Copy className="w-3.5 h-3.5" />
+                    <Copy className="w-3.5 h-3.5 shrink-0" />
                   )}
-                  <span>{copiedPrompt ? "已复制到剪贴板" : "复制提示词"}</span>
+                  <span>
+                    {copiedPrompt
+                      ? t("workspace_view.copied_prompt_btn")
+                      : t("workspace_view.copy_prompt_btn")}
+                  </span>
                 </button>
               </div>
             </div>

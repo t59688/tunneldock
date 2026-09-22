@@ -6,6 +6,7 @@ import {
   Minimize2,
   X,
 } from "lucide-react";
+import { useTranslation } from "../i18n";
 
 export type CloseAction = "exit" | "hide" | "cancel";
 
@@ -22,6 +23,7 @@ export const CloseConfirmDialog: React.FC<CloseConfirmDialogProps> = ({
   error,
   onResolve,
 }) => {
+  const { t } = useTranslation();
   const hideButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -67,7 +69,7 @@ export const CloseConfirmDialog: React.FC<CloseConfirmDialogProps> = ({
           <div className="min-w-0 flex-1 pt-0.5">
             <div className="mb-2 flex items-center gap-2">
               <span className="rounded-full border border-zinc-700 bg-zinc-900/80 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-zinc-500">
-                Session control
+                {t("close_dialog.tag")}
               </span>
               {busy && (
                 <span
@@ -75,7 +77,7 @@ export const CloseConfirmDialog: React.FC<CloseConfirmDialogProps> = ({
                   className="inline-flex items-center gap-1.5 text-[10px] text-amber-400/80"
                 >
                   <LoaderCircle className="h-3 w-3 animate-spin" />
-                  正在处理关闭操作
+                  {t("close_dialog.processing")}
                 </span>
               )}
             </div>
@@ -83,14 +85,13 @@ export const CloseConfirmDialog: React.FC<CloseConfirmDialogProps> = ({
               id="close-dialog-title"
               className="text-[17px] font-semibold tracking-tight text-zinc-100"
             >
-              要离开 TunnelDock 吗？
+              {t("close_dialog.title")}
             </h2>
             <p
               id="close-dialog-description"
               className="mt-2 max-w-md text-xs leading-5 text-zinc-400"
             >
-              最小化到托盘会保留后台服务与工作区会话；直接退出则会停止由
-              TunnelDock 管理的后台进程。
+              {t("close_dialog.desc")}
             </p>
           </div>
 
@@ -99,7 +100,7 @@ export const CloseConfirmDialog: React.FC<CloseConfirmDialogProps> = ({
             onClick={() => onResolve("cancel")}
             disabled={busy}
             className="rounded-lg p-1.5 text-zinc-600 transition-colors hover:bg-zinc-800 hover:text-zinc-200 disabled:pointer-events-none disabled:opacity-30"
-            aria-label="取消关闭"
+            aria-label={t("close_dialog.aria_cancel")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -107,7 +108,7 @@ export const CloseConfirmDialog: React.FC<CloseConfirmDialogProps> = ({
 
         {error && (
           <div className="relative mx-6 mb-4 rounded-lg border border-rose-900/60 bg-rose-950/25 px-3 py-2 text-[11px] leading-5 text-rose-300">
-            关闭操作未完成：{error}
+            {t("close_dialog.error_prefix")}{error}
           </div>
         )}
 
@@ -119,7 +120,7 @@ export const CloseConfirmDialog: React.FC<CloseConfirmDialogProps> = ({
               disabled={busy}
               className="h-9 rounded-lg border border-zinc-800 px-3.5 text-xs font-medium text-zinc-400 transition-colors hover:border-zinc-700 hover:bg-zinc-800/70 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
             >
-              取消
+              {t("close_dialog.cancel_btn")}
             </button>
 
             <div className="flex flex-col-reverse gap-2 sm:flex-row">
@@ -130,7 +131,7 @@ export const CloseConfirmDialog: React.FC<CloseConfirmDialogProps> = ({
                 className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-rose-900/70 bg-rose-950/25 px-4 text-xs font-semibold text-rose-300 transition-colors hover:border-rose-800 hover:bg-rose-950/55 hover:text-rose-200 disabled:pointer-events-none disabled:opacity-40"
               >
                 <LogOut className="h-3.5 w-3.5" />
-                直接退出
+                {t("close_dialog.exit_btn")}
               </button>
               <button
                 ref={hideButtonRef}
@@ -140,7 +141,7 @@ export const CloseConfirmDialog: React.FC<CloseConfirmDialogProps> = ({
                 className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-amber-400/80 bg-amber-400 px-4 text-xs font-semibold text-amber-950 shadow-[0_8px_24px_rgba(245,158,11,0.14)] transition-colors hover:border-amber-300 hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111114] disabled:pointer-events-none disabled:opacity-60"
               >
                 <Minimize2 className="h-3.5 w-3.5" />
-                最小化到托盘
+                {t("close_dialog.hide_btn")}
               </button>
             </div>
           </div>

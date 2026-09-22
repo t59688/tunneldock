@@ -21,6 +21,7 @@ import {
   formatTokenCount,
   paginateHistory,
 } from "./historyStats";
+import { useTranslation } from "../i18n";
 
 const PAGE_SIZE = 20;
 
@@ -35,6 +36,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   workspaces,
   onRefresh,
 }) => {
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedWorkspace, setSelectedWorkspace] = useState("all");
   const [selectedTool, setSelectedTool] = useState<string>("all");
@@ -74,7 +76,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   );
 
   const handleClear = async () => {
-    if (confirm("确定要清空所有 MCP 调用历史记录吗？")) {
+    if (confirm(t("history_view.clear_confirm"))) {
       await clearHistory();
       onRefresh();
     }
@@ -139,14 +141,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold text-zinc-100">
-              MCP 工具调用审计与追踪
+              {t("history_view.title")}
             </h2>
             <span className="text-xs font-mono text-zinc-500">
-              ({workspaceHistory.length} 条记录)
+              {t("history_view.records_count", {
+                count: workspaceHistory.length,
+              })}
             </span>
           </div>
           <p className="text-xs text-zinc-400 max-w-xl">
-            记录各工作区 Pi RPC 实际执行的本地工具调用；Token 为调用参数与完整结果按 o200k_base 计算的 MCP 传输量。
+            {t("history_view.banner_desc")}
           </p>
         </div>
 
@@ -154,7 +158,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
           <button
             onClick={onRefresh}
             className="p-2 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors"
-            title="刷新历史"
+            title={t("history_view.refresh_tooltip")}
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
@@ -163,14 +167,14 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
             className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>导出 JSON</span>
+            <span>{t("history_view.export_btn")}</span>
           </button>
           <button
             onClick={handleClear}
             className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-medium bg-rose-950/30 hover:bg-rose-900/40 text-rose-300 border border-rose-800/60 transition-colors"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>清空审计</span>
+            <span>{t("history_view.clear_btn")}</span>
           </button>
         </div>
       </div>
@@ -178,55 +182,73 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-9 gap-3">
         <div className="p-3 rounded-lg bg-dark-card border border-zinc-800 space-y-1">
-          <div className="text-[11px] font-mono text-zinc-500">总调用次数</div>
+          <div className="text-[11px] font-mono text-zinc-500">
+            {t("history_view.stat_total_calls")}
+          </div>
           <div className="text-lg font-bold font-mono text-zinc-100">
             {stats.total}
           </div>
         </div>
         <div className="p-3 rounded-lg bg-dark-card border border-zinc-800 space-y-1">
-          <div className="text-[11px] font-mono text-zinc-500">只读检查 (read)</div>
+          <div className="text-[11px] font-mono text-zinc-500">
+            {t("history_view.stat_read_check")}
+          </div>
           <div className="text-lg font-bold font-mono text-zinc-300">
             {stats.readCount}
           </div>
         </div>
         <div className="p-3 rounded-lg bg-dark-card border border-zinc-800 space-y-1">
-          <div className="text-[11px] font-mono text-zinc-500">命令执行 (bash)</div>
+          <div className="text-[11px] font-mono text-zinc-500">
+            {t("history_view.stat_cmd_exec")}
+          </div>
           <div className="text-lg font-bold font-mono text-amber-400">
             {stats.bashCount}
           </div>
         </div>
         <div className="p-3 rounded-lg bg-dark-card border border-zinc-800 space-y-1">
-          <div className="text-[11px] font-mono text-zinc-500">代码修改 (write)</div>
+          <div className="text-[11px] font-mono text-zinc-500">
+            {t("history_view.stat_code_edit")}
+          </div>
           <div className="text-lg font-bold font-mono text-emerald-400">
             {stats.writeCount}
           </div>
         </div>
         <div className="p-3 rounded-lg bg-dark-card border border-zinc-800 space-y-1">
-          <div className="text-[11px] font-mono text-zinc-500">调用成功率</div>
+          <div className="text-[11px] font-mono text-zinc-500">
+            {t("history_view.stat_success_rate")}
+          </div>
           <div className="text-lg font-bold font-mono text-emerald-400">
             {stats.successRate === null ? "--" : `${stats.successRate}%`}
           </div>
         </div>
         <div className="p-3 rounded-lg bg-dark-card border border-zinc-800 space-y-1">
-          <div className="text-[11px] font-mono text-zinc-500">平均耗时</div>
+          <div className="text-[11px] font-mono text-zinc-500">
+            {t("history_view.stat_avg_duration")}
+          </div>
           <div className="text-lg font-bold font-mono text-zinc-300">
             {stats.avgDuration} ms
           </div>
         </div>
         <div className="p-3 rounded-lg bg-dark-card border border-zinc-800 space-y-1">
-          <div className="text-[11px] font-mono text-zinc-500">输入 Tokens</div>
+          <div className="text-[11px] font-mono text-zinc-500">
+            {t("history_view.stat_input_tokens")}
+          </div>
           <div className="text-lg font-bold font-mono text-sky-400">
             {formatTokenCount(stats.inputTokens)}
           </div>
         </div>
         <div className="p-3 rounded-lg bg-dark-card border border-zinc-800 space-y-1">
-          <div className="text-[11px] font-mono text-zinc-500">输出 Tokens</div>
+          <div className="text-[11px] font-mono text-zinc-500">
+            {t("history_view.stat_output_tokens")}
+          </div>
           <div className="text-lg font-bold font-mono text-violet-400">
             {formatTokenCount(stats.outputTokens)}
           </div>
         </div>
         <div className="p-3 rounded-lg bg-dark-card border border-zinc-800 space-y-1">
-          <div className="text-[11px] font-mono text-zinc-500">总 Tokens</div>
+          <div className="text-[11px] font-mono text-zinc-500">
+            {t("history_view.stat_total_tokens")}
+          </div>
           <div className="text-lg font-bold font-mono text-cyan-300">
             {formatTokenCount(stats.totalTokens)}
           </div>
@@ -240,7 +262,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
             <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="搜索参数、工具名、命令内容..."
+              placeholder={t("history_view.search_placeholder")}
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -253,7 +275,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-zinc-500 font-mono">工作区:</span>
+            <span className="text-zinc-500 font-mono">
+              {t("history_view.workspace_label")}
+            </span>
             <select
               value={selectedWorkspace}
               onChange={(e) => {
@@ -262,7 +286,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
               }}
               className="bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-xs text-zinc-300 font-mono focus:outline-none max-w-44"
             >
-              <option value="all">全部工作区</option>
+              <option value="all">{t("history_view.all_workspaces")}</option>
               {workspaces.map((workspace) => (
                 <option key={workspace.id} value={workspace.id}>
                   {workspace.name}
@@ -273,7 +297,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
           {/* Tool Filter */}
           <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-zinc-500 font-mono">工具:</span>
+            <span className="text-zinc-500 font-mono">
+              {t("history_view.tool_label")}
+            </span>
             <select
               value={selectedTool}
               onChange={(e) => {
@@ -282,21 +308,23 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
               }}
               className="bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-xs text-zinc-300 font-mono focus:outline-none"
             >
-              <option value="all">全部工具</option>
-              <option value="read">read (读取文件)</option>
-              <option value="bash">bash (运行命令)</option>
-              <option value="edit">edit (修改代码)</option>
-              <option value="write">write (写入文件)</option>
-              <option value="transfer">transfer (文件传输)</option>
-              <option value="sessions">sessions (会话列表)</option>
-              <option value="init">init (绑定工作区)</option>
-              <option value="chat">chat (向本地发送消息)</option>
+              <option value="all">{t("history_view.all_tools")}</option>
+              <option value="read">{t("history_view.tool_read")}</option>
+              <option value="bash">{t("history_view.tool_bash")}</option>
+              <option value="edit">{t("history_view.tool_edit")}</option>
+              <option value="write">{t("history_view.tool_write")}</option>
+              <option value="transfer">{t("history_view.tool_transfer")}</option>
+              <option value="sessions">{t("history_view.tool_sessions")}</option>
+              <option value="init">{t("history_view.tool_init")}</option>
+              <option value="chat">{t("history_view.tool_chat")}</option>
             </select>
           </div>
 
           {/* Status Filter */}
           <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-zinc-500 font-mono">状态:</span>
+            <span className="text-zinc-500 font-mono">
+              {t("history_view.status_label")}
+            </span>
             <select
               value={selectedStatus}
               onChange={(e) => {
@@ -305,9 +333,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
               }}
               className="bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-xs text-zinc-300 font-mono focus:outline-none"
             >
-              <option value="all">全部状态</option>
-              <option value="success">成功 (Success)</option>
-              <option value="error">失败 (Error)</option>
+              <option value="all">{t("history_view.all_status")}</option>
+              <option value="success">{t("history_view.status_success")}</option>
+              <option value="error">{t("history_view.status_error")}</option>
             </select>
           </div>
         </div>
@@ -317,20 +345,22 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
       <div className="rounded-lg bg-dark-card border border-zinc-800 overflow-hidden">
         {filteredHistory.length === 0 ? (
           <div className="p-8 text-center text-xs text-zinc-500 italic">
-            没有匹配的 MCP 调用记录
+            {t("history_view.empty_records")}
           </div>
         ) : (
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-zinc-800 bg-zinc-950/60 font-mono text-[11px] text-zinc-400 select-none">
-                <th className="py-2.5 px-4">时间戳</th>
-                <th className="py-2.5 px-3">工具</th>
-                <th className="py-2.5 px-3">工作区 / Session</th>
-                <th className="py-2.5 px-3">调用参数</th>
-                <th className="py-2.5 px-3">Tokens</th>
-                <th className="py-2.5 px-3">执行耗时</th>
-                <th className="py-2.5 px-3">状态</th>
-                <th className="py-2.5 px-4 text-right">操作</th>
+                <th className="py-2.5 px-4">{t("history_view.table_time")}</th>
+                <th className="py-2.5 px-3">{t("history_view.table_tool")}</th>
+                <th className="py-2.5 px-3">{t("history_view.table_workspace")}</th>
+                <th className="py-2.5 px-3">{t("history_view.field_args")}</th>
+                <th className="py-2.5 px-3">{t("history_view.field_tokens")}</th>
+                <th className="py-2.5 px-3">{t("history_view.table_duration")}</th>
+                <th className="py-2.5 px-3">{t("history_view.table_status")}</th>
+                <th className="py-2.5 px-4 text-right">
+                  {t("history_view.table_actions")}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60 font-mono">
@@ -344,7 +374,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                   </td>
                   <td className="py-2.5 px-3">{getToolBadge(item.tool_name)}</td>
                   <td className="py-2.5 px-3 text-zinc-300 truncate max-w-[140px]">
-                    {item.workspace_name || "默认会话"}
+                    {item.workspace_name || t("history_view.default_session")}
                   </td>
                   <td className="py-2.5 px-3 text-zinc-400 truncate max-w-[280px]">
                     {item.args_json}
@@ -359,17 +389,17 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                     {item.status === "success" ? (
                       <span className="flex items-center gap-1 text-[11px] text-emerald-400">
                         <CheckCircle2 className="w-3 h-3" />
-                        <span>成功</span>
+                        <span>{t("history_view.status_success")}</span>
                       </span>
                     ) : item.status === "executing" ? (
                       <span className="flex items-center gap-1 text-[11px] text-amber-400">
                         <RefreshCw className="w-3 h-3 animate-spin" />
-                        <span>执行中</span>
+                        <span>{t("history_view.status_executing")}</span>
                       </span>
                     ) : (
                       <span className="flex items-center gap-1 text-[11px] text-rose-400">
                         <XCircle className="w-3 h-3" />
-                        <span>失败</span>
+                        <span>{t("history_view.status_error")}</span>
                       </span>
                     )}
                   </td>
@@ -379,7 +409,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                       className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] inline-flex items-center gap-1 transition-colors"
                     >
                       <Eye className="w-3 h-3" />
-                      <span>查看</span>
+                      <span>{t("history_view.view_btn")}</span>
                     </button>
                   </td>
                 </tr>
@@ -390,7 +420,11 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
         {filteredHistory.length > 0 && (
           <div className="flex items-center justify-between border-t border-zinc-800 bg-zinc-950/40 px-4 py-3 text-[11px] font-mono text-zinc-500">
             <span>
-              显示 {pagination.start}-{pagination.end}，共 {pagination.total} 条
+              {t("history_view.page_showing", {
+                start: pagination.start,
+                end: pagination.end,
+                total: pagination.total,
+              })}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -400,10 +434,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 className="inline-flex items-center gap-1 rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-zinc-300 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronLeft className="h-3 w-3" />
-                上一页
+                {t("history_view.prev_page")}
               </button>
               <span className="min-w-20 text-center text-zinc-400">
-                第 {pagination.page} / {pagination.totalPages} 页
+                {t("history_view.page_current", {
+                  page: pagination.page,
+                  totalPages: pagination.totalPages,
+                })}
               </span>
               <button
                 type="button"
@@ -411,7 +448,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 disabled={pagination.page === pagination.totalPages}
                 className="inline-flex items-center gap-1 rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-zinc-300 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                下一页
+                {t("history_view.next_page")}
                 <ChevronRight className="h-3 w-3" />
               </button>
             </div>
@@ -427,17 +464,35 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
               <div className="space-y-0.5">
                 <h3 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
                   <Code2 className="w-4 h-4 text-emerald-400" />
-                  MCP 工具调用详情
+                  {t("history_view.inspect_title")}
                 </h3>
                 <div className="text-[11px] font-mono text-zinc-400 flex items-center gap-3">
                   <span>ID: {inspectRecord.id}</span>
-                  <span>时间: {formatLocalTimestamp(inspectRecord.timestamp)}</span>
-                  <span>耗时: {inspectRecord.duration_ms}ms</span>
+                  <span>
+                    {t("history_view.field_call_time")}:{" "}
+                    {formatLocalTimestamp(inspectRecord.timestamp)}
+                  </span>
+                  <span>
+                    {t("history_view.field_duration")}:{" "}
+                    {inspectRecord.duration_ms}ms
+                  </span>
                 </div>
                 <div className="text-[11px] font-mono text-zinc-500 flex items-center gap-3">
-                  <span>输入: {formatTokenCount(inspectRecord.input_tokens ?? 0)} tokens</span>
-                  <span>输出: {formatTokenCount(inspectRecord.output_tokens ?? 0)} tokens</span>
-                  <span>总计: {formatTokenCount(inspectRecord.total_tokens ?? 0)} tokens</span>
+                  <span>
+                    {t("history_view.tokens_input", {
+                      count: formatTokenCount(inspectRecord.input_tokens ?? 0),
+                    })}
+                  </span>
+                  <span>
+                    {t("history_view.tokens_output", {
+                      count: formatTokenCount(inspectRecord.output_tokens ?? 0),
+                    })}
+                  </span>
+                  <span>
+                    {t("history_view.tokens_total", {
+                      count: formatTokenCount(inspectRecord.total_tokens ?? 0),
+                    })}
+                  </span>
                 </div>
               </div>
 
@@ -448,14 +503,18 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
             <div className="space-y-3 font-mono text-xs">
               <div className="space-y-1">
-                <div className="text-zinc-400 font-semibold">执行参数 / 原始日志:</div>
+                <div className="text-zinc-400 font-semibold">
+                  {t("history_view.args_and_raw_log")}
+                </div>
                 <div className="p-3 rounded bg-zinc-950 border border-zinc-800 text-zinc-300 whitespace-pre-wrap max-h-48 overflow-y-auto select-text">
                   {inspectRecord.args_json}
                 </div>
               </div>
 
               <div className="space-y-1">
-                <div className="text-zinc-400 font-semibold">返回结果摘要:</div>
+                <div className="text-zinc-400 font-semibold">
+                  {t("history_view.result_summary_label")}
+                </div>
                 <div className="p-3 rounded bg-zinc-950 border border-zinc-800 text-zinc-300 select-text">
                   {inspectRecord.result_summary}
                 </div>
@@ -478,13 +537,17 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 ) : (
                   <Copy className="w-3 h-3" />
                 )}
-                <span>{copiedInspect ? "已复制 JSON" : "复制完整数据"}</span>
+                <span>
+                  {copiedInspect
+                    ? t("history_view.copied_json")
+                    : t("history_view.copy_full_data")}
+                </span>
               </button>
               <button
                 onClick={() => setInspectRecord(null)}
                 className="px-4 py-1.5 rounded text-xs font-medium bg-zinc-200 hover:bg-white text-zinc-950 font-semibold"
               >
-                关闭
+                {t("history_view.close_btn")}
               </button>
             </div>
           </div>

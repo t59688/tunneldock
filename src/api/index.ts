@@ -102,11 +102,13 @@ export async function restartWorkspaceSession(
 
 export async function generateChatGptPrompt(
   path: string,
-  sessionId?: string | null
+  sessionId?: string | null,
+  locale?: string | null
 ): Promise<string> {
   return await invoke<string>("generate_chatgpt_prompt", {
     path,
     sessionId: sessionId || null,
+    locale: locale || null,
   });
 }
 
@@ -132,6 +134,10 @@ export async function updateSettings(
   newSettings: TunnelSettings
 ): Promise<TunnelSettings> {
   return await invoke<TunnelSettings>("update_settings", { newSettings });
+}
+
+export async function setLocale(locale: string): Promise<string> {
+  return await invoke<string>("set_locale", { locale });
 }
 
 export async function refreshProcessEnvironment(): Promise<boolean> {

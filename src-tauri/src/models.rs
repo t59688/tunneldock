@@ -44,7 +44,8 @@ pub struct OtunnelDaemonStatus {
     pub healthz_ok: bool,
     pub readyz_ok: bool,
     pub latency_ms: Option<u64>,
-    pub listen_port: u16,
+    pub listen_port: Option<u16>,
+    pub health_base_url: Option<String>,
     pub tunnel_id: Option<String>,
     pub uptime_seconds: Option<u64>,
 }
@@ -85,6 +86,10 @@ pub struct McpCallRecord {
     pub total_tokens: u64,
 }
 
+fn default_locale() -> String {
+    "zh-CN".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TunnelSettings {
     pub tunnel_id: String,
@@ -92,6 +97,8 @@ pub struct TunnelSettings {
     pub key_file_path: String,
     pub health_port: u16,
     pub profile_name: String,
+    #[serde(default = "default_locale")]
+    pub locale: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,7 +111,7 @@ pub struct CommandOutput {
 
 #[cfg(test)]
 mod tests {
-    use super::McpCallRecord;
+    use super::{McpCallRecord, TunnelSettings};
 
     #[test]
     fn old_history_records_default_workspace_identity_and_tokens() {
@@ -127,5 +134,20 @@ mod tests {
         assert_eq!(record.input_tokens, 0);
         assert_eq!(record.output_tokens, 0);
         assert_eq!(record.total_tokens, 0);
+    }
+
+    #[test]
+    fn legacy_settings_without_locale_defaults_to_zh_cn() {
+        let legacy = r#"{
+            "tunnel_id": "tunnel_123",
+            "api_key": "sk-xxx",
+            "key_file_path": "/path/key",
+            "health_port": 0,
+            "profile_name": "chappie"
+        }"#;
+
+        let settings: TunnelSettings =
+            serde_json::from_str(legacy).expect("legacy settings without locale should still load");
+        assert_eq!(settings.locale, "zh-CN");
     }
 }

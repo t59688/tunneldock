@@ -18,6 +18,7 @@ import {
   openPathInExplorer,
   saveTunnelCredentials,
 } from "../api";
+import { useTranslation } from "../i18n";
 
 interface EnvironmentViewProps {
   items: EnvCheckItem[];
@@ -28,42 +29,6 @@ interface EnvironmentViewProps {
   onSaveSettings: () => void | Promise<void>;
 }
 
-function formatError(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return "发生未知错误";
-  }
-}
-
-function uninstallImpact(item: EnvCheckItem): string {
-  switch (item.id) {
-    case "node":
-    case "npm":
-      return "Node.js 与 npm 属于同一运行时。卸载后 Pi、Chappie 及依赖 Node.js 的工作区将无法启动；TunnelDock 会先停止其管理的 Pi 工作区进程。";
-    case "git":
-      return "卸载后本机将无法通过该 Git 安装执行版本控制操作。系统自带或非 TunnelDock 可安全识别的 Git 不会被强制删除。";
-    case "cargo":
-      return "卸载 Rust/Cargo 可能同时移除同一 Cargo Home 中的 cargo-binstall、otunnel 等 Cargo 二进制。TunnelDock 会先停止其管理的 otunnel 进程。";
-    case "cargo_binstall":
-      return "仅移除 cargo-binstall 安装器；已经安装的 otunnel 不会因此被主动删除。";
-    case "otunnel":
-      return "TunnelDock 会先停止其管理的 otunnel 进程，然后移除 otunnel。Tunnel Key 与 Profile 配置会保留。";
-    case "pi":
-      return "TunnelDock 会先停止全部由其管理的 Pi 工作区进程。Chappie 扩展文件可能仍保留，但在 Pi 重新安装前无法运行。";
-    case "chappie":
-      return "TunnelDock 会先停止由其管理的 Pi 工作区进程，然后仅移除 @zetaloop/chappie 扩展，不卸载 Pi。";
-    case "tunnel_key":
-      return "将删除本机 ~/.chappie/tunnelkey.txt 中的 Tunnel API Key，并同步清空 TunnelDock 保存的密钥。远端 OpenAI API Key 本身不会被撤销。";
-    case "tunnel_config":
-      return "将删除 TunnelDock/otunnel 同步维护的所有 chappie.yaml 副本，并清空本地 Tunnel ID。Tunnel API Key 文件会保留。";
-    default:
-      return "将移除该组件，并在操作后重新检测实际系统状态。";
-  }
-}
-
 export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
   items,
   loading,
@@ -72,9 +37,12 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
   settings,
   onSaveSettings,
 }) => {
+  const { t } = useTranslation();
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [uninstallingId, setUninstallingId] = useState<string | null>(null);
-  const [pendingUninstall, setPendingUninstall] = useState<EnvCheckItem | null>(null);
+  const [pendingUninstall, setPendingUninstall] = useState<EnvCheckItem | null>(
+    null
+  );
   const [isAutoInstalling, setIsAutoInstalling] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [inputTunnelId, setInputTunnelId] = useState(settings?.tunnel_id || "");
@@ -82,6 +50,42 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
   const [configSaving, setConfigSaving] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const formatError = (error: unknown): string => {
+    if (error instanceof Error) return error.message;
+    if (typeof error === "string") return error;
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return t("env_view.unknown_error");
+    }
+  };
+
+  const getUninstallImpact = (item: EnvCheckItem): string => {
+    switch (item.id) {
+      case "node":
+      case "npm":
+        return t("env_view.impact_node");
+      case "git":
+        return t("env_view.impact_git");
+      case "cargo":
+        return t("env_view.impact_cargo");
+      case "cargo_binstall":
+        return t("env_view.impact_cargo_binstall");
+      case "otunnel":
+        return t("env_view.impact_otunnel");
+      case "pi":
+        return t("env_view.impact_pi");
+      case "chappie":
+        return t("env_view.impact_chappie");
+      case "tunnel_key":
+        return t("env_view.impact_tunnel_key");
+      case "tunnel_config":
+        return t("env_view.impact_tunnel_config");
+      default:
+        return t("env_view.impact_default");
+    }
+  };
 
   const readyCount = items.filter((i) => i.status === "ready").length;
   const missingItems = items.filter(
@@ -101,7 +105,7 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
       await installComponent(id);
       await onRefresh();
     } catch (error) {
-      setActionError(`安装失败：${formatError(error)}`);
+      setActionError(`${t("env_view.install_failed_prefix")}${formatError(error)}`);
       console.error(error);
     } finally {
       setInstallingId(null);
@@ -130,7 +134,9 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
     setIsAutoInstalling(false);
     await onRefresh();
     if (failures.length > 0) {
-      setActionError(`部分组件自动装配失败：${failures.join("；")}`);
+      setActionError(
+        t("env_view.auto_install_partial_failed", { failures: failures.join("; ") })
+      );
     }
   };
 
@@ -147,7 +153,7 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
       await onRefresh();
       await onSaveSettings();
     } catch (error) {
-      setActionError(`卸载失败：${formatError(error)}`);
+      setActionError(`${t("env_view.uninstall_failed_prefix")}${formatError(error)}`);
       console.error(error);
     } finally {
       setUninstallingId(null);
@@ -156,7 +162,7 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
 
   const handleSaveCredentials = async () => {
     if (!inputTunnelId.trim() || !inputApiKey.trim()) {
-      setConfigError("Tunnel ID 和 API Key 均不能为空");
+      setConfigError(t("env_view.config_empty_error"));
       return;
     }
     try {
@@ -179,45 +185,45 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
         return (
           <span className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-800/60 shrink-0 whitespace-nowrap">
             <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
-            已就绪
+            {t("env_view.badge_ready")}
           </span>
         );
       case "outdated":
         return (
           <span className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-amber-950/40 text-amber-400 border border-amber-800/60 shrink-0 whitespace-nowrap">
             <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
-            版本过低
+            {t("env_view.badge_outdated")}
           </span>
         );
       case "warning":
         return (
           <span className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-amber-950/40 text-amber-400 border border-amber-800/60 shrink-0 whitespace-nowrap">
             <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
-            注意
+            {t("env_view.badge_warning")}
           </span>
         );
       case "config_needed":
         return (
           <span className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-amber-950/40 text-amber-400 border border-amber-800/60 shrink-0 whitespace-nowrap">
             <Sliders className="w-3 h-3 text-amber-400 shrink-0" />
-            待配置
+            {t("env_view.badge_config_needed")}
           </span>
         );
       default:
         return (
           <span className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-rose-950/40 text-rose-400 border border-rose-800/60 shrink-0 whitespace-nowrap">
             <XCircle className="w-3 h-3 text-rose-400 shrink-0" />
-            未安装
+            {t("env_view.badge_missing")}
           </span>
         );
     }
   };
 
   const categories = [
-    { key: "runtime", title: "核心运行时 (Runtime)" },
-    { key: "tools", title: "开发与构建工具 (Tools)" },
-    { key: "mcp", title: "OpenAI MCP & Pi 体系" },
-    { key: "credentials", title: "隧道凭据与 Profile" },
+    { key: "runtime", title: t("env_view.cat_runtime") },
+    { key: "tools", title: t("env_view.cat_tools") },
+    { key: "mcp", title: t("env_view.cat_mcp") },
+    { key: "credentials", title: t("env_view.cat_credentials") },
   ];
 
   const destructiveHighImpact = pendingUninstall
@@ -231,18 +237,21 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
         <div className="space-y-1 min-w-0">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold text-zinc-100">
-              系统环境全链路自检
+              {t("env_view.title")}
             </h2>
             <span className="text-xs font-mono text-zinc-500">
-              ({readyCount}/{items.length} 就绪)
+              {t("env_view.ready_summary", {
+                ready: readyCount,
+                total: items.length,
+              })}
             </span>
           </div>
           <p className="text-xs text-zinc-400 max-w-xl">
             {isAllReady
-              ? "本地开发链路环境完全就绪。每个已安装组件均可独立执行受控卸载或配置清理。"
-              : `检测到 ${
-                  missingItems.length + configNeededItems.length
-                } 项需处理。可自动装配缺失组件，也可对已安装组件执行受控卸载。`}
+              ? t("env_view.all_ready_desc")
+              : t("env_view.issues_desc", {
+                  count: missingItems.length + configNeededItems.length,
+                })}
           </p>
         </div>
 
@@ -252,18 +261,19 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
             className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors"
           >
             <TerminalIcon className="w-3.5 h-3.5" />
-            <span>查看操作输出</span>
+            <span>{t("env_view.view_output_btn")}</span>
           </button>
 
           <button
             onClick={() => void onRefresh()}
             disabled={loading || operationBusy}
+            title={t("env_view.refresh_tooltip")}
             className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors disabled:opacity-50"
           >
             <RefreshCw
               className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
             />
-            <span>重新自检</span>
+            <span>{t("env_view.refresh_tooltip")}</span>
           </button>
 
           {missingItems.length > 0 && (
@@ -274,7 +284,9 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
             >
               <Download className="w-4 h-4" />
               <span>
-                {isAutoInstalling ? "正在自动装配中..." : "一键全自动装配"}
+                {isAutoInstalling
+                  ? t("env_view.auto_installing")
+                  : t("env_view.auto_install_all")}
               </span>
             </button>
           )}
@@ -286,7 +298,7 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
               className="flex items-center gap-2 px-4 py-2 rounded text-xs font-medium bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold shadow transition-all disabled:opacity-50"
             >
               <Sliders className="w-4 h-4" />
-              <span>快速配置凭据</span>
+              <span>{t("env_view.config_btn")}</span>
             </button>
           )}
         </div>
@@ -301,7 +313,7 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
           <button
             onClick={() => setActionError(null)}
             className="text-rose-300/70 hover:text-rose-200 shrink-0"
-            aria-label="关闭错误提示"
+            aria-label="close error"
           >
             <XCircle className="w-4 h-4" />
           </button>
@@ -347,7 +359,9 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
                             </div>
                             {item.required_version && (
                               <div className="text-[11px] font-mono text-zinc-500">
-                                要求版本: {item.required_version}
+                                {t("env_view.required_version_label", {
+                                  version: item.required_version,
+                                })}
                               </div>
                             )}
                           </div>
@@ -364,7 +378,7 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
                             <button
                               onClick={() => openPathInExplorer(item.path!)}
                               className="text-zinc-400 hover:text-zinc-200 shrink-0"
-                              title="在资源管理器中查看"
+                              title={t("env_view.open_folder_tooltip")}
                             >
                               <FolderOpen className="w-3.5 h-3.5" />
                             </button>
@@ -387,10 +401,10 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
                               <Download className="w-3 h-3 text-emerald-400" />
                               <span>
                                 {isCurInstalling
-                                  ? "安装中..."
+                                  ? t("env_view.installing_btn")
                                   : item.status === "outdated"
-                                  ? "一键升级"
-                                  : "一键安装"}
+                                  ? t("env_view.upgrade_btn")
+                                  : t("env_view.install_btn")}
                               </span>
                             </button>
                           )}
@@ -406,7 +420,7 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
                               className="px-2.5 py-1 rounded text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
                             >
                               <Sliders className="w-3 h-3 text-amber-400" />
-                              <span>配置凭据</span>
+                              <span>{t("env_view.config_btn")}</span>
                             </button>
                           )}
 
@@ -418,15 +432,19 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
                               }}
                               disabled={operationBusy}
                               className="px-2.5 py-1 rounded text-xs font-medium bg-rose-950/30 hover:bg-rose-950/60 text-rose-300 border border-rose-900/70 hover:border-rose-800 transition-colors flex items-center gap-1.5 disabled:opacity-50"
-                              title={item.category === "credentials" ? "清除本地配置" : "卸载组件"}
+                              title={
+                                item.category === "credentials"
+                                  ? t("env_view.clear_btn")
+                                  : t("env_view.uninstall_btn")
+                              }
                             >
                               <Trash2 className="w-3 h-3" />
                               <span>
                                 {isCurUninstalling
-                                  ? "处理中..."
+                                  ? t("env_view.uninstalling_btn")
                                   : item.category === "credentials"
-                                  ? "清除"
-                                  : "卸载"}
+                                  ? t("env_view.clear_btn")
+                                  : t("env_view.uninstall_btn")}
                               </span>
                             </button>
                           )}
@@ -448,24 +466,30 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
             <div className="space-y-2">
               <h3 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-rose-400" />
-                {pendingUninstall.category === "credentials" ? "确认清除" : "确认卸载"}
-                <span className="text-rose-300">{pendingUninstall.name}</span>
+                {pendingUninstall.category === "credentials"
+                  ? t("env_view.confirm_clear_btn")
+                  : t("env_view.uninstall_dialog_title")}
+                : <span className="text-rose-300">{pendingUninstall.name}</span>
               </h3>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                {uninstallImpact(pendingUninstall)}
+                {getUninstallImpact(pendingUninstall)}
               </p>
             </div>
 
             {destructiveHighImpact && (
               <div className="p-3 rounded bg-amber-950/30 border border-amber-800/60 text-xs text-amber-300 leading-relaxed">
-                这是高影响操作。相关运行中的 TunnelDock 子进程会先被安全停止，操作完成后系统会自动重新自检。外部程序或终端中自行启动的进程不由 TunnelDock 强制管理。
+                {t("env_view.high_impact_warning")}
               </div>
             )}
 
             <div className="p-3 rounded bg-zinc-950/70 border border-zinc-800 text-[11px] font-mono text-zinc-400">
-              组件 ID: {pendingUninstall.id}
+              {t("env_view.component_id_label", { id: pendingUninstall.id })}
               {pendingUninstall.path && (
-                <div className="mt-1 break-all">当前路径: {pendingUninstall.path}</div>
+                <div className="mt-1 break-all">
+                  {t("env_view.current_path_label", {
+                    path: pendingUninstall.path,
+                  })}
+                </div>
               )}
             </div>
 
@@ -475,7 +499,7 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
                 disabled={uninstallingId !== null}
                 className="px-3 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
               >
-                取消
+                {t("env_view.cancel_btn")}
               </button>
               <button
                 onClick={() => void handleConfirmUninstall()}
@@ -484,10 +508,10 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 {uninstallingId === pendingUninstall.id
-                  ? "正在处理..."
+                  ? t("env_view.uninstalling_btn")
                   : pendingUninstall.category === "credentials"
-                  ? "确认清除"
-                  : "确认卸载"}
+                  ? t("env_view.confirm_clear_btn")
+                  : t("env_view.confirm_uninstall_btn")}
               </button>
             </div>
           </div>
@@ -501,10 +525,10 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
             <div className="space-y-1">
               <h3 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
                 <Sliders className="w-4 h-4 text-amber-400" />
-                配置 OpenAI Tunnel 凭据
+                {t("env_view.config_modal_title")}
               </h3>
               <p className="text-xs text-zinc-400">
-                系统将自动生成密钥文件与 otunnel profile，无需手动输入终端命令。
+                {t("env_view.config_modal_desc")}
               </p>
             </div>
 
@@ -517,20 +541,22 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <label className="text-zinc-300 font-medium">Tunnel ID</label>
+                  <label className="text-zinc-300 font-medium">
+                    {t("env_view.tunnel_id_label")}
+                  </label>
                   <a
                     href="https://platform.openai.com/settings/organization/tunnels"
                     target="_blank"
                     rel="noreferrer"
                     className="text-emerald-400 hover:underline flex items-center gap-1 text-[11px]"
                   >
-                    <span>在平台创建 Tunnel</span>
+                    <span>{t("env_view.create_tunnel_link")}</span>
                     <ArrowUpRight className="w-3 h-3" />
                   </a>
                 </div>
                 <input
                   type="text"
-                  placeholder="例如: tunnel_6aa8f23637488191acd536bd857791d1"
+                  placeholder={t("env_view.tunnel_id_placeholder")}
                   value={inputTunnelId}
                   onChange={(e) => setInputTunnelId(e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-xs font-mono text-zinc-100 focus:outline-none focus:border-zinc-600"
@@ -540,7 +566,7 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <label className="text-zinc-300 font-medium">
-                    OpenAI API Key (Restricted)
+                    {t("env_view.api_key_label")}
                   </label>
                   <a
                     href="https://platform.openai.com/settings/organization/api-keys"
@@ -548,19 +574,19 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
                     rel="noreferrer"
                     className="text-emerald-400 hover:underline flex items-center gap-1 text-[11px]"
                   >
-                    <span>创建 Tunnel 密钥</span>
+                    <span>{t("env_view.create_key_link")}</span>
                     <ArrowUpRight className="w-3 h-3" />
                   </a>
                 </div>
                 <input
                   type="password"
-                  placeholder="sk-..."
+                  placeholder={t("env_view.api_key_placeholder")}
                   value={inputApiKey}
                   onChange={(e) => setInputApiKey(e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-xs font-mono text-zinc-100 focus:outline-none focus:border-zinc-600"
                 />
                 <p className="text-[11px] text-zinc-500">
-                  权限建议只赋予 Tunnels: Read / Use，密钥将安全存放于 ~/.chappie/tunnelkey.txt。
+                  {t("env_view.key_storage_hint")}
                 </p>
               </div>
             </div>
@@ -571,14 +597,16 @@ export const EnvironmentView: React.FC<EnvironmentViewProps> = ({
                 disabled={configSaving}
                 className="px-3 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
               >
-                取消
+                {t("env_view.cancel_btn")}
               </button>
               <button
                 onClick={() => void handleSaveCredentials()}
                 disabled={configSaving}
                 className="px-4 py-1.5 rounded text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-semibold disabled:opacity-50"
               >
-                {configSaving ? "正在保存..." : "保存并初始化 Profile"}
+                {configSaving
+                  ? t("env_view.saving_btn")
+                  : t("env_view.save_btn")}
               </button>
             </div>
           </div>

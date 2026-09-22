@@ -16,12 +16,31 @@ pub fn get_settings(state: State<'_, Arc<AppState>>) -> TunnelSettings {
 
 #[tauri::command]
 pub fn update_settings(
+    app: tauri::AppHandle,
     state: State<'_, Arc<AppState>>,
     new_settings: TunnelSettings,
 ) -> Result<TunnelSettings, String> {
+    let locale = new_settings.locale.clone();
     *state.settings.lock() = new_settings.clone();
     state.save_settings();
+    let _ = crate::tray::update_tray_menu(&app, &locale);
     Ok(new_settings)
+}
+
+#[tauri::command]
+pub fn set_locale(
+    app: tauri::AppHandle,
+    state: State<'_, Arc<AppState>>,
+    locale: String,
+) -> Result<String, String> {
+    let normalized = crate::i18n::Locale::from_str(&locale).as_str().to_string();
+    {
+        let mut settings = state.settings.lock();
+        settings.locale = normalized.clone();
+    }
+    state.save_settings();
+    let _ = crate::tray::update_tray_menu(&app, &normalized);
+    Ok(normalized)
 }
 
 #[tauri::command]

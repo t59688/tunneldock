@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import { Terminal, X, Copy, Trash2, Check } from "lucide-react";
+import { useTranslation } from "../i18n";
 
 interface TerminalDrawerProps {
   title: string;
@@ -16,6 +17,7 @@ export const TerminalDrawer: React.FC<TerminalDrawerProps> = ({
   logs,
   onClear,
 }) => {
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = React.useState(false);
 
@@ -42,29 +44,31 @@ export const TerminalDrawer: React.FC<TerminalDrawerProps> = ({
           <Terminal className="w-3.5 h-3.5 text-emerald-400" />
           <span className="font-semibold">{title}</span>
           <span className="text-[11px] text-zinc-500">
-            ({logs.length} 行输出)
+            {t("terminal_drawer.output_count", { count: logs.length })}
           </span>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={handleCopy}
             className="px-2 py-1 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 flex items-center gap-1 transition-colors"
-            title="复制全部日志"
+            title={t("terminal_drawer.copy_all")}
           >
             {copied ? (
               <Check className="w-3 h-3 text-emerald-400" />
             ) : (
               <Copy className="w-3 h-3" />
             )}
-            <span className="text-[11px]">{copied ? "已复制" : "复制"}</span>
+            <span className="text-[11px]">
+              {copied ? t("terminal_drawer.copied") : t("terminal_drawer.copy")}
+            </span>
           </button>
           <button
             onClick={onClear}
             className="px-2 py-1 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 flex items-center gap-1 transition-colors"
-            title="清空日志"
+            title={t("terminal_drawer.clear_logs")}
           >
             <Trash2 className="w-3 h-3" />
-            <span className="text-[11px]">清空</span>
+            <span className="text-[11px]">{t("terminal_drawer.clear")}</span>
           </button>
           <button
             onClick={onClose}
@@ -82,7 +86,7 @@ export const TerminalDrawer: React.FC<TerminalDrawerProps> = ({
       >
         {logs.length === 0 ? (
           <div className="text-zinc-600 italic py-4 text-center">
-            暂无终端输出记录...
+            {t("terminal_drawer.empty")}
           </div>
         ) : (
           logs.map((item, idx) => (

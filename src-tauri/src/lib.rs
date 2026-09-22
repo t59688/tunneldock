@@ -4,6 +4,7 @@ pub mod state;
 mod tray;
 pub mod utils;
 pub mod commands;
+pub mod i18n;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -72,6 +73,7 @@ pub fn run() {
             // Settings
             commands::settings::get_settings,
             commands::settings::update_settings,
+            commands::settings::set_locale,
             commands::settings::refresh_process_environment,
             commands::settings::open_path_in_explorer,
             commands::settings::get_app_version,

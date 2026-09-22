@@ -1,12 +1,16 @@
 use std::fs;
 use std::path::PathBuf;
-use tauri::{AppHandle, Emitter};
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter, State};
 use crate::models::{EnvCheckItem, InstallProgressEvent, TunnelSettings};
+use crate::state::AppState;
 use crate::utils::cmd::{execute_cmd, find_executable, run_streaming};
 use crate::utils::paths::{ensure_chappie_yaml_synced, get_chappie_yaml_path, sync_chappie_yaml};
 
 #[tauri::command]
-pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
+pub async fn check_environment(state: State<'_, Arc<AppState>>) -> Result<Vec<EnvCheckItem>, String> {
+    let locale = state.settings.lock().locale.clone();
+    let is_en = locale.starts_with("en");
     let mut items = Vec::new();
     // System-level installers differ by OS. Windows has winget and macOS can
     // safely use Homebrew when present. Linux distributions vary too much to
@@ -19,14 +23,18 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
     let node_path = find_executable("node");
     let mut node_item = EnvCheckItem {
         id: "node".to_string(),
-        name: "Node.js 运行时".to_string(),
+        name: crate::i18n::t(&locale, "env.name.node").to_string(),
         category: "runtime".to_string(),
         installed: false,
         version: None,
         required_version: Some(">= 26.0.0".to_string()),
         path: node_path.clone(),
         status: "missing".to_string(),
-        message: "未检测到 Node.js，Chappie 运行依赖 Node >= 26".to_string(),
+        message: if is_en {
+            "Node.js not detected. Chappie requires Node >= 26".to_string()
+        } else {
+            "未检测到 Node.js，Chappie 运行依赖 Node >= 26".to_string()
+        },
         can_auto_install: can_install_system_package,
     };
 
@@ -47,13 +55,24 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
 
             if major_ver >= 26 {
                 node_item.status = "ready".to_string();
-                node_item.message = format!("Node.js {} 已就绪 (满足 >= 26 要求)", ver);
+                node_item.message = if is_en {
+                    format!("Node.js {} is ready (>= 26 satisfied)", ver)
+                } else {
+                    format!("Node.js {} 已就绪 (满足 >= 26 要求)", ver)
+                };
             } else {
                 node_item.status = "outdated".to_string();
-                node_item.message = format!(
-                    "当前版本 {} 过低，Chappie MCP 要求 Node >= 26，请点击升级",
-                    ver
-                );
+                node_item.message = if is_en {
+                    format!(
+                        "Current version {} is too low. Chappie MCP requires Node >= 26. Please upgrade.",
+                        ver
+                    )
+                } else {
+                    format!(
+                        "当前版本 {} 过低，Chappie MCP 要求 Node >= 26，请点击升级",
+                        ver
+                    )
+                };
             }
         }
     }
@@ -63,14 +82,18 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
     let npm_path = find_executable("npm");
     let mut npm_item = EnvCheckItem {
         id: "npm".to_string(),
-        name: "npm 包管理器".to_string(),
+        name: crate::i18n::t(&locale, "env.name.npm").to_string(),
         category: "runtime".to_string(),
         installed: false,
         version: None,
         required_version: None,
         path: npm_path.clone(),
         status: "missing".to_string(),
-        message: "未检测到 npm".to_string(),
+        message: if is_en {
+            "npm not detected".to_string()
+        } else {
+            "未检测到 npm".to_string()
+        },
         can_auto_install: can_install_system_package,
     };
     if npm_path.is_some() {
@@ -79,7 +102,11 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
             npm_item.installed = true;
             npm_item.version = Some(out.stdout.trim().to_string());
             npm_item.status = "ready".to_string();
-            npm_item.message = format!("npm {} 正常可用", out.stdout.trim());
+            npm_item.message = if is_en {
+                format!("npm {} is ready", out.stdout.trim())
+            } else {
+                format!("npm {} 正常可用", out.stdout.trim())
+            };
         }
     }
     items.push(npm_item);
@@ -88,14 +115,18 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
     let git_path = find_executable("git");
     let mut git_item = EnvCheckItem {
         id: "git".to_string(),
-        name: "Git 版本控制".to_string(),
+        name: crate::i18n::t(&locale, "env.name.git").to_string(),
         category: "tools".to_string(),
         installed: false,
         version: None,
         required_version: None,
         path: git_path.clone(),
         status: "missing".to_string(),
-        message: "未安装 Git，ChatGPT 将无法执行 git 状态与分支操作".to_string(),
+        message: if is_en {
+            "Git not installed. ChatGPT won't be able to run git branch/status operations".to_string()
+        } else {
+            "未安装 Git，ChatGPT 将无法执行 git 状态与分支操作".to_string()
+        },
         can_auto_install: can_install_system_package,
     };
     if git_path.is_some() {
@@ -113,14 +144,18 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
     let cargo_path = find_executable("cargo");
     let mut cargo_item = EnvCheckItem {
         id: "cargo".to_string(),
-        name: "Rust / Cargo 工具链".to_string(),
+        name: crate::i18n::t(&locale, "env.name.cargo").to_string(),
         category: "tools".to_string(),
         installed: false,
         version: None,
         required_version: None,
         path: cargo_path.clone(),
         status: "missing".to_string(),
-        message: "未检测到 Cargo (用于构建与更新 otunnel)".to_string(),
+        message: if is_en {
+            "Cargo not detected (used for building and updating otunnel)".to_string()
+        } else {
+            "未检测到 Cargo (用于构建与更新 otunnel)".to_string()
+        },
         can_auto_install: can_bootstrap_rust,
     };
     if cargo_path.is_some() {
@@ -138,14 +173,18 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
     let binstall_path = find_executable("cargo-binstall");
     let mut binstall_item = EnvCheckItem {
         id: "cargo_binstall".to_string(),
-        name: "cargo-binstall 极速安装器".to_string(),
+        name: crate::i18n::t(&locale, "env.name.cargo_binstall").to_string(),
         category: "tools".to_string(),
         installed: false,
         version: None,
         required_version: None,
         path: binstall_path.clone(),
         status: "missing".to_string(),
-        message: "未安装 cargo-binstall，建议安装以加速 otunnel 构建".to_string(),
+        message: if is_en {
+            "cargo-binstall not installed. Recommended for faster otunnel builds".to_string()
+        } else {
+            "未安装 cargo-binstall，建议安装以加速 otunnel 构建".to_string()
+        },
         can_auto_install: true,
     };
     if binstall_path.is_some() {
@@ -159,9 +198,17 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
         if out.success && !out.stdout.trim().is_empty() {
             let ver = out.stdout.lines().next().unwrap_or("").trim().to_string();
             binstall_item.version = Some(ver.clone());
-            binstall_item.message = format!("cargo-binstall {} 已就绪", ver);
+            binstall_item.message = if is_en {
+                format!("cargo-binstall {} is ready", ver)
+            } else {
+                format!("cargo-binstall {} 已就绪", ver)
+            };
         } else {
-            binstall_item.message = "cargo-binstall 已安装".to_string();
+            binstall_item.message = if is_en {
+                "cargo-binstall is installed".to_string()
+            } else {
+                "cargo-binstall 已安装".to_string()
+            };
         }
     }
     items.push(binstall_item);
@@ -170,14 +217,18 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
     let otunnel_path = find_executable("otunnel");
     let mut otunnel_item = EnvCheckItem {
         id: "otunnel".to_string(),
-        name: "OpenAI otunnel 客户端".to_string(),
+        name: crate::i18n::t(&locale, "env.name.otunnel").to_string(),
         category: "mcp".to_string(),
         installed: false,
         version: None,
         required_version: None,
         path: otunnel_path.clone(),
         status: "missing".to_string(),
-        message: "未检测到 otunnel 二进制，无法建立 OpenAI 安全隧道".to_string(),
+        message: if is_en {
+            "otunnel binary not detected. Unable to establish OpenAI secure tunnel".to_string()
+        } else {
+            "未检测到 otunnel 二进制，无法建立 OpenAI 安全隧道".to_string()
+        },
         can_auto_install: true,
     };
     if otunnel_path.is_some() {
@@ -186,7 +237,11 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
             otunnel_item.installed = true;
             otunnel_item.version = Some(out.stdout.trim().to_string());
             otunnel_item.status = "ready".to_string();
-            otunnel_item.message = format!("otunnel {} 已安装", out.stdout.trim());
+            otunnel_item.message = if is_en {
+                format!("otunnel {} installed", out.stdout.trim())
+            } else {
+                format!("otunnel {} 已安装", out.stdout.trim())
+            };
         }
     }
     items.push(otunnel_item);
@@ -195,14 +250,18 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
     let pi_path = find_executable("pi");
     let mut pi_item = EnvCheckItem {
         id: "pi".to_string(),
-        name: "Pi Coding Agent CLI".to_string(),
+        name: crate::i18n::t(&locale, "env.name.pi").to_string(),
         category: "mcp".to_string(),
         installed: false,
         version: None,
         required_version: None,
         path: pi_path.clone(),
         status: "missing".to_string(),
-        message: "未检测到 pi，请安装 @earendil-works/pi-coding-agent".to_string(),
+        message: if is_en {
+            "pi not detected. Please install @earendil-works/pi-coding-agent".to_string()
+        } else {
+            "未检测到 pi，请安装 @earendil-works/pi-coding-agent".to_string()
+        },
         can_auto_install: true,
     };
     if pi_path.is_some() {
@@ -215,7 +274,11 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
             pi_item.installed = true;
             pi_item.version = Some(ver.clone());
             pi_item.status = "ready".to_string();
-            pi_item.message = format!("pi {} 已就绪", ver);
+            pi_item.message = if is_en {
+                format!("pi {} is ready", ver)
+            } else {
+                format!("pi {} 已就绪", ver)
+            };
         }
     }
     items.push(pi_item);
@@ -246,14 +309,18 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
 
     let mut chappie_item = EnvCheckItem {
         id: "chappie".to_string(),
-        name: "Chappie MCP 插件扩展".to_string(),
+        name: crate::i18n::t(&locale, "env.name.chappie").to_string(),
         category: "mcp".to_string(),
         installed: false,
         version: chappie_ver.clone(),
         required_version: None,
         path: chappie_path,
         status: "missing".to_string(),
-        message: "Pi 中未安装 @zetaloop/chappie 扩展".to_string(),
+        message: if is_en {
+            "Chappie extension is not installed in Pi".to_string()
+        } else {
+            "Pi 中未安装 @zetaloop/chappie 扩展".to_string()
+        },
         can_auto_install: true,
     };
 
@@ -271,7 +338,11 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
             let ver_text = chappie_ver
                 .map(|v| format!("v{} ", v))
                 .unwrap_or_default();
-            chappie_item.message = format!("Chappie MCP Broker {}已正常集成至 Pi", ver_text);
+            chappie_item.message = if is_en {
+                format!("Chappie MCP Broker {}integrated into Pi", ver_text)
+            } else {
+                format!("Chappie MCP Broker {}已正常集成至 Pi", ver_text)
+            };
         }
     }
     items.push(chappie_item);
@@ -290,7 +361,7 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
 
     let key_item = EnvCheckItem {
         id: "tunnel_key".to_string(),
-        name: "OpenAI Tunnel API Key".to_string(),
+        name: crate::i18n::t(&locale, "env.name.tunnel_key").to_string(),
         category: "credentials".to_string(),
         installed: has_valid_key,
         version: if has_valid_key {
@@ -306,7 +377,13 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
             "config_needed".to_string()
         },
         message: if has_valid_key {
-            format!("API Key 已配置 ({})", key_file.display())
+            if is_en {
+                format!("API Key configured ({})", key_file.display())
+            } else {
+                format!("API Key 已配置 ({})", key_file.display())
+            }
+        } else if is_en {
+            "Missing API Key. Please enter OpenAI Tunnel Restricted Key in Settings".to_string()
         } else {
             "缺少 API Key，请在设置中输入 OpenAI Tunnel Restricted Key".to_string()
         },
@@ -338,7 +415,7 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
 
     let config_item = EnvCheckItem {
         id: "tunnel_config".to_string(),
-        name: "Otunnel 配置文件 (chappie.yaml)".to_string(),
+        name: crate::i18n::t(&locale, "env.name.tunnel_config").to_string(),
         category: "credentials".to_string(),
         installed: yaml_exists && has_tunnel_id,
         version: if has_tunnel_id { Some(tunnel_id_str) } else { None },
@@ -350,7 +427,13 @@ pub async fn check_environment() -> Result<Vec<EnvCheckItem>, String> {
             "config_needed".to_string()
         },
         message: if yaml_exists && has_tunnel_id {
-            "Otunnel Profile 配置文件已初始化".to_string()
+            if is_en {
+                "Otunnel profile configuration initialized".to_string()
+            } else {
+                "Otunnel Profile 配置文件已初始化".to_string()
+            }
+        } else if is_en {
+            "Profile not initialized or missing valid Tunnel ID".to_string()
         } else {
             "尚未初始化 Profile 或缺少有效 Tunnel ID".to_string()
         },
@@ -509,19 +592,27 @@ pub async fn install_component(app: AppHandle, item_id: String) -> Result<bool, 
 
 #[tauri::command]
 pub async fn save_tunnel_credentials(
+    state: State<'_, Arc<AppState>>,
     tunnel_id: String,
     api_key: String,
     health_port: Option<u16>,
 ) -> Result<TunnelSettings, String> {
     let clean_key = api_key.trim().to_string();
     let clean_id = tunnel_id.trim().to_string();
-    let port = health_port.unwrap_or(8080);
+    let port = health_port.unwrap_or(0);
 
+    let locale = state.settings.lock().locale.clone();
     if clean_key.is_empty() || clean_id.is_empty() {
-        return Err("Tunnel ID 和 API Key 均不能为空".to_string());
+        return Err(crate::i18n::t(&locale, "error.tunnel_id_and_key_required").to_string());
     }
 
-    let home = dirs::home_dir().ok_or_else(|| "无法获取用户主目录".to_string())?;
+    let home = dirs::home_dir().ok_or_else(|| {
+        if locale.starts_with("en") {
+            "Unable to get user home directory".to_string()
+        } else {
+            "无法获取用户主目录".to_string()
+        }
+    })?;
     let chappie_dir = home.join(".chappie");
     fs::create_dir_all(&chappie_dir).map_err(|e| e.to_string())?;
 
@@ -553,11 +644,17 @@ mcp:
 
     sync_chappie_yaml(&yaml_content).map_err(|e| format!("写入 chappie.yaml 失败: {}", e))?;
 
-    Ok(TunnelSettings {
+    let new_settings = TunnelSettings {
         tunnel_id: clean_id,
         api_key: clean_key,
         key_file_path: key_file_str,
         health_port: port,
         profile_name: "chappie".to_string(),
-    })
+        locale,
+    };
+
+    *state.settings.lock() = new_settings.clone();
+    state.save_settings();
+
+    Ok(new_settings)
 }

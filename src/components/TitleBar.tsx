@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Square, X } from "lucide-react";
+import { useTranslation } from "../i18n";
 
 const appWindow = getCurrentWindow();
 
 export const TitleBar: React.FC = () => {
+  const { t } = useTranslation();
   const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
@@ -76,7 +78,7 @@ export const TitleBar: React.FC = () => {
           data-tauri-drag-region
           className="text-[11px] font-medium tracking-wide text-zinc-400 truncate"
         >
-          TunnelDock — OpenAI Tunnel & Pi Workspace
+          {t("titlebar.title")}
         </span>
       </div>
 
@@ -86,8 +88,8 @@ export const TitleBar: React.FC = () => {
           onClick={minimize}
           onDoubleClick={(event) => event.stopPropagation()}
           className="w-11 h-full flex items-center justify-center text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800/80 transition-colors"
-          title="最小化"
-          aria-label="最小化"
+          title={t("titlebar.minimize")}
+          aria-label={t("titlebar.minimize")}
         >
           <Minus className="w-3.5 h-3.5" strokeWidth={1.7} />
         </button>
@@ -97,8 +99,8 @@ export const TitleBar: React.FC = () => {
           onClick={toggleMaximize}
           onDoubleClick={(event) => event.stopPropagation()}
           className="w-11 h-full flex items-center justify-center text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800/80 transition-colors"
-          title={maximized ? "还原" : "最大化"}
-          aria-label={maximized ? "还原" : "最大化"}
+          title={maximized ? t("titlebar.restore") : t("titlebar.maximize")}
+          aria-label={maximized ? t("titlebar.restore") : t("titlebar.maximize")}
         >
           {maximized ? (
             <span className="relative w-3.5 h-3.5" aria-hidden="true">
@@ -115,8 +117,8 @@ export const TitleBar: React.FC = () => {
           onClick={close}
           onDoubleClick={(event) => event.stopPropagation()}
           className="w-12 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-rose-600 transition-colors"
-          title="关闭"
-          aria-label="关闭"
+          title={t("titlebar.close")}
+          aria-label={t("titlebar.close")}
         >
           <X className="w-4 h-4" strokeWidth={1.7} />
         </button>

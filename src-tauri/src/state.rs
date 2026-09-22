@@ -20,6 +20,8 @@ pub struct AppState {
     pub running_workspace_pids: Arc<Mutex<HashMap<String, u32>>>,
     pub running_workspace_stdins: Arc<Mutex<HashMap<String, std::process::ChildStdin>>>,
     pub otunnel_pid: Arc<Mutex<Option<u32>>>,
+    pub otunnel_health_url: Arc<Mutex<Option<String>>>,
+    pub otunnel_health_url_file: Arc<Mutex<Option<PathBuf>>>,
     pub history: Arc<Mutex<Vec<McpCallRecord>>>,
     pub settings: Arc<Mutex<TunnelSettings>>,
     pub app_data_dir: PathBuf,
@@ -39,6 +41,8 @@ impl AppState {
             running_workspace_pids: Arc::new(Mutex::new(HashMap::new())),
             running_workspace_stdins: Arc::new(Mutex::new(HashMap::new())),
             otunnel_pid: Arc::new(Mutex::new(None)),
+            otunnel_health_url: Arc::new(Mutex::new(None)),
+            otunnel_health_url_file: Arc::new(Mutex::new(None)),
             history: Arc::new(Mutex::new(history)),
             settings: Arc::new(Mutex::new(settings)),
             app_data_dir,
@@ -97,6 +101,7 @@ impl AppState {
         if let Some(pid) = self.otunnel_pid.lock().take() {
             let _ = kill_process_tree(pid);
         }
+        self.clear_otunnel_runtime();
 
         let pids: Vec<u32> = self.running_workspace_pids.lock().values().copied().collect();
         self.running_workspace_pids.lock().clear();
@@ -117,7 +122,16 @@ impl AppState {
     fn load_settings(data_dir: &PathBuf) -> TunnelSettings {
         let file = data_dir.join("settings.json");
         if let Ok(content) = fs::read_to_string(&file) {
-            if let Ok(settings) = serde_json::from_str::<TunnelSettings>(&content) {
+            if let Ok(mut settings) = serde_json::from_str::<TunnelSettings>(&content) {
+                // 8080 was TunnelDock's legacy hard-coded default. Migrate it to
+                // automatic allocation so upgrades do not retain the collision-prone
+                // behavior. Users can still choose any explicit non-zero port later.
+                if settings.health_port == 8080 {
+                    settings.health_port = 0;
+                    if let Ok(json) = serde_json::to_string_pretty(&settings) {
+                        let _ = fs::write(&file, json);
+                    }
+                }
                 return settings;
             }
         }
@@ -156,8 +170,16 @@ impl AppState {
             tunnel_id,
             api_key: key,
             key_file_path: key_file.to_string_lossy().to_string(),
-            health_port: 8080,
+            health_port: 0,
             profile_name: "chappie".to_string(),
+            locale: "zh-CN".to_string(),
+        }
+    }
+
+    pub fn clear_otunnel_runtime(&self) {
+        self.otunnel_health_url.lock().take();
+        if let Some(path) = self.otunnel_health_url_file.lock().take() {
+            let _ = fs::remove_file(path);
         }
     }
 

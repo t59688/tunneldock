@@ -118,8 +118,11 @@ pub async fn list_workspaces(state: State<'_, Arc<AppState>>) -> Result<Vec<Work
             let status_out = execute_cmd("git", &["status", "--porcelain"], Some(path));
             if status_out.success {
                 let changes = status_out.stdout.lines().count();
+                let locale = state.settings.lock().locale.clone();
                 item.git_status = if changes == 0 {
-                    Some("工作区干净 (Clean)".to_string())
+                    Some(crate::i18n::t(&locale, "workspace.git_clean").to_string())
+                } else if locale.starts_with("en") {
+                    Some(format!("{} uncommitted changes", changes))
                 } else {
                     Some(format!("{} 个文件未提交变更", changes))
                 };
@@ -137,9 +140,10 @@ pub async fn add_workspace(
     path: String,
     name: Option<String>,
 ) -> Result<WorkspaceItem, String> {
+    let locale = state.settings.lock().locale.clone();
     let p = PathBuf::from(&path);
     if !p.exists() || !p.is_dir() {
-        return Err("指定的项目目录不存在或不是有效文件夹".to_string());
+        return Err(crate::i18n::t(&locale, "error.workspace_path_invalid").to_string());
     }
 
     let default_name = p
@@ -174,7 +178,7 @@ pub async fn add_workspace(
         let mut workspaces = state.workspaces.lock();
         // Prevent duplicate path
         if workspaces.iter().any(|w| w.path == item.path) {
-            return Err("该工作区路径已存在于列表中".to_string());
+            return Err(crate::i18n::t(&locale, "error.workspace_path_exists").to_string());
         }
         workspaces.push(item.clone());
     }
@@ -206,13 +210,14 @@ pub async fn start_workspace_session(
     state: State<'_, Arc<AppState>>,
     workspace_id: String,
 ) -> Result<u32, String> {
-    let (path_str, ws_name) = {
+    let (path_str, ws_name, locale) = {
         let workspaces = state.workspaces.lock();
         let ws = workspaces
             .iter()
             .find(|w| w.id == workspace_id)
             .ok_or_else(|| "工作区未找到".to_string())?;
-        (ws.path.clone(), ws.name.clone())
+        let loc = state.settings.lock().locale.clone();
+        (ws.path.clone(), ws.name.clone(), loc)
     };
 
     let dir = PathBuf::from(&path_str);
@@ -223,12 +228,18 @@ pub async fn start_workspace_session(
     // Stop existing process if any
     let _ = stop_workspace_session(app.clone(), state.clone(), workspace_id.clone()).await;
 
+    let start_msg = if locale.starts_with("en") {
+        format!(">>> Starting workspace Pi session: {} ({})", ws_name, path_str)
+    } else {
+        format!(">>> 正在启动工作区 Pi Session: {} ({})", ws_name, path_str)
+    };
+
     // Emit startup feedback into terminal drawer
     let _ = app.emit(
         "workspace-log",
         serde_json::json!({
             "workspace_id": &workspace_id,
-            "line": format!(">>> 正在启动工作区 Pi Session: {} ({})", ws_name, path_str),
+            "line": start_msg,
             "is_error": false,
         }),
     );
@@ -236,7 +247,7 @@ pub async fn start_workspace_session(
         "workspace-log",
         serde_json::json!({
             "workspace_id": &workspace_id,
-            "line": ">>> 运行模式: RPC 后台服务 (连接 Chappie MCP Broker)...",
+            "line": crate::i18n::t(&locale, "workspace.log.rpc_mode"),
             "is_error": false,
         }),
     );
@@ -437,11 +448,12 @@ pub async fn start_workspace_session(
             drop(list);
             state_clone.save_workspaces();
 
+            let locale = state_clone.settings.lock().locale.clone();
             let _ = app_handle.emit(
                 "workspace-log",
                 serde_json::json!({
                     "workspace_id": &ws_id,
-                    "line": ">>> Pi 工作区会话已结束退出",
+                    "line": crate::i18n::t(&locale, "workspace.log.session_exited"),
                     "is_error": false,
                 }),
             );
@@ -486,13 +498,14 @@ pub async fn stop_workspace_session(
         }
     }
 
+    let locale = state.settings.lock().locale.clone();
     state.save_workspaces();
 
     let _ = app.emit(
         "workspace-log",
         serde_json::json!({
             "workspace_id": &workspace_id,
-            "line": ">>> Pi 工作区会话已成功停止",
+            "line": crate::i18n::t(&locale, "workspace.log.session_stopped"),
             "is_error": false,
         }),
     );
@@ -512,10 +525,29 @@ pub async fn restart_workspace_session(
 }
 
 #[tauri::command]
-pub fn generate_chatgpt_prompt(path: String, session_id: Option<String>) -> String {
+pub fn generate_chatgpt_prompt(
+    path: String,
+    session_id: Option<String>,
+    locale: Option<String>,
+) -> String {
+    let is_en = locale.as_deref().unwrap_or("").starts_with("en");
     if let Some(sid) = session_id {
         if !sid.trim().is_empty() {
-            return format!(
+            return if is_en {
+                format!(
+r#"@Chappie
+
+I want to work on project:
+{}
+
+Call init with the specified sessionId:
+init({{ sessionId: "{}" }})
+
+Then output current cwd, Git branch, and status."#,
+                    path, sid
+                )
+            } else {
+                format!(
 r#"@Chappie
 
 我要操作项目：
@@ -525,12 +557,32 @@ r#"@Chappie
 init({{ sessionId: "{}" }})
 
 随后输出当前 cwd、Git 分支及状态。"#,
-                path, sid
-            );
+                    path, sid
+                )
+            };
         }
     }
 
-    format!(
+    if is_en {
+        format!(
+r#"@Chappie
+
+I want to work on project:
+{}
+
+Follow these steps:
+1. Call sessions.
+2. Find the exact Pi session corresponding to this project based on cwd.
+3. Confirm there is only one match.
+4. Call init using the matching sessionId.
+5. Output current cwd, Git branch, and git status.
+6. Do not modify any files.
+
+If the project does not exist, has multiple matches, or Pi is not online, stop and report the current sessions status."#,
+            path
+        )
+    } else {
+        format!(
 r#"@Chappie
 
 我要操作项目：
@@ -545,6 +597,7 @@ r#"@Chappie
 6. 不要修改任何文件。
 
 如果项目不存在、存在多个匹配、Pi 未在线，停止操作并告诉我当前 sessions 状态。"#,
-        path
-    )
+            path
+        )
+    }
 }

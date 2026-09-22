@@ -72,11 +72,32 @@ impl CloseLifecycle {
     }
 }
 
+pub(crate) fn build_tray_menu<M: Manager<R>, R: Runtime>(
+    manager: &M,
+    locale: &str,
+) -> tauri::Result<Menu<R>> {
+    let show_text = crate::i18n::t(locale, "tray.show_main_window");
+    let exit_text = crate::i18n::t(locale, "tray.exit");
+    let show_item = MenuItem::with_id(manager, SHOW_MENU_ID, show_text, true, None::<&str>)?;
+    let separator = PredefinedMenuItem::separator(manager)?;
+    let exit_item = MenuItem::with_id(manager, EXIT_MENU_ID, exit_text, true, None::<&str>)?;
+    Menu::with_items(manager, &[&show_item, &separator, &exit_item])
+}
+
+pub(crate) fn update_tray_menu<R: Runtime>(app: &AppHandle<R>, locale: &str) -> tauri::Result<()> {
+    if let Some(tray) = app.tray_by_id("main-tray") {
+        let menu = build_tray_menu(app, locale)?;
+        tray.set_menu(Some(menu))?;
+    }
+    Ok(())
+}
+
 pub(crate) fn setup(app: &mut App, lifecycle: Arc<CloseLifecycle>) -> tauri::Result<()> {
-    let show_item = MenuItem::with_id(app, SHOW_MENU_ID, "显示主界面", true, None::<&str>)?;
-    let separator = PredefinedMenuItem::separator(app)?;
-    let exit_item = MenuItem::with_id(app, EXIT_MENU_ID, "退出", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show_item, &separator, &exit_item])?;
+    let locale = app
+        .try_state::<Arc<crate::state::AppState>>()
+        .map(|s| s.settings.lock().locale.clone())
+        .unwrap_or_else(|| "zh-CN".to_string());
+    let menu = build_tray_menu(app, &locale)?;
 
     let menu_lifecycle = lifecycle.clone();
     let mut tray = TrayIconBuilder::with_id("main-tray")

@@ -12,11 +12,13 @@ import {
   Download,
   LoaderCircle,
   Sparkles,
+  Globe,
 } from "lucide-react";
 import { TunnelSettings } from "../types";
 import { AppUpdateState } from "../hooks/useAppUpdater";
 import { openPathInExplorer, saveTunnelCredentials } from "../api";
 import { APP_VERSION } from "../version";
+import { useTranslation } from "../i18n";
 
 interface SettingsViewProps {
   settings: TunnelSettings | null;
@@ -33,10 +35,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onCheckUpdates,
   onOpenUpdater,
 }) => {
+  const { t, locale, setLocale } = useTranslation();
   const [tunnelId, setTunnelId] = useState(settings?.tunnel_id || "");
   const [apiKey, setApiKey] = useState(settings?.api_key || "");
   const [healthPort, setHealthPort] = useState<number>(
-    settings?.health_port || 8080
+    settings?.health_port ?? 0
   );
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -52,7 +55,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSave = async () => {
     if (!tunnelId.trim() || !apiKey.trim()) {
-      setErrorMessage("Tunnel ID 和 API Key 均为必填项");
+      setErrorMessage(t("env_view.config_empty_error"));
+      return;
+    }
+    if (!Number.isInteger(healthPort) || healthPort < 0 || healthPort > 65535) {
+      setErrorMessage(t("settings_view.health_port_desc"));
       return;
     }
 
@@ -77,14 +84,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold text-zinc-100">
-              OpenAI Tunnel 凭据与配置文件
+              {t("settings_view.banner_title")}
             </h2>
             <span className="text-xs font-mono text-zinc-500">
               (Profile: {settings?.profile_name || "chappie"})
             </span>
           </div>
           <p className="text-xs text-zinc-400 max-w-xl">
-            配置与 OpenAI Secure MCP Tunnel 相关的组织级隧道凭据与本地监听端口。保存后将自动同步至 ~/.chappie/tunnelkey.txt 与 chappie.yaml。
+            {t("settings_view.banner_desc")}
           </p>
         </div>
 
@@ -98,7 +105,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           ) : (
             <Save className="w-4 h-4" />
           )}
-          <span>{saving ? "正在保存..." : savedSuccess ? "已成功保存" : "保存所有配置"}</span>
+          <span>
+            {saving
+              ? t("settings_view.saving")
+              : savedSuccess
+              ? t("settings_view.saved")
+              : t("settings_view.save_all")}
+          </span>
         </button>
       </div>
 
@@ -110,25 +123,86 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* Main Form Cards */}
       <div className="space-y-4">
+        {/* Card 0: Language & Display Preferences */}
+        <div className="p-5 rounded-lg bg-dark-card border border-zinc-800 space-y-4">
+          <div>
+            <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+              <Globe className="w-4 h-4 text-sky-400" />
+              <span>{t("settings_view.card_language_title")}</span>
+            </h3>
+            <p className="text-xs text-zinc-500 mt-1">
+              {t("settings_view.card_language_desc")}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setLocale("zh-CN")}
+              className={`p-3.5 rounded-lg border text-left transition-all flex items-center justify-between ${
+                locale === "zh-CN"
+                  ? "bg-emerald-950/30 border-emerald-500/70 text-emerald-300 ring-1 ring-emerald-500/40"
+                  : "bg-zinc-950/50 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+              }`}
+            >
+              <div className="space-y-0.5">
+                <div className="text-xs font-medium text-zinc-200">
+                  {t("settings_view.lang_zh")}
+                </div>
+                <div className="text-[11px] font-mono text-zinc-500">
+                  zh-CN / 简体中文
+                </div>
+              </div>
+              {locale === "zh-CN" && (
+                <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setLocale("en-US")}
+              className={`p-3.5 rounded-lg border text-left transition-all flex items-center justify-between ${
+                locale === "en-US"
+                  ? "bg-emerald-950/30 border-emerald-500/70 text-emerald-300 ring-1 ring-emerald-500/40"
+                  : "bg-zinc-950/50 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+              }`}
+            >
+              <div className="space-y-0.5">
+                <div className="text-xs font-medium text-zinc-200">
+                  {t("settings_view.lang_en")}
+                </div>
+                <div className="text-[11px] font-mono text-zinc-500">
+                  en-US / English
+                </div>
+              </div>
+              {locale === "en-US" && (
+                <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+              )}
+            </button>
+          </div>
+        </div>
+
         {/* Card 1: Credentials */}
         <div className="p-5 rounded-lg bg-dark-card border border-zinc-800 space-y-4">
           <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
             <Shield className="w-4 h-4 text-emerald-400" />
-            <span>OpenAI 平台凭据</span>
+            <span>{t("settings_view.card_credentials_title")}</span>
           </h3>
 
           <div className="space-y-4">
             {/* Tunnel ID */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs">
-                <label className="text-zinc-300 font-medium">Tunnel ID</label>
+                <label className="text-zinc-300 font-medium">
+                  {t("settings_view.tunnel_id_label")}
+                </label>
                 <a
                   href="https://platform.openai.com/settings/organization/tunnels"
                   target="_blank"
                   rel="noreferrer"
                   className="text-emerald-400 hover:underline flex items-center gap-1 text-[11px]"
                 >
-                  <span>前往 OpenAI Platform 创建 Tunnel</span>
+                  <span>{t("settings_view.open_platform_tunnel_link")}</span>
                   <ArrowUpRight className="w-3 h-3" />
                 </a>
               </div>
@@ -136,11 +210,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 type="text"
                 value={tunnelId}
                 onChange={(e) => setTunnelId(e.target.value)}
-                placeholder="例如: tunnel_6aa8f23637488191acd536bd857791d1"
+                placeholder={t("settings_view.tunnel_id_placeholder")}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-xs font-mono text-zinc-100 focus:outline-none focus:border-zinc-600"
               />
               <p className="text-[11px] text-zinc-500">
-                在 OpenAI 组织设置中的 Tunnels 页面创建，名称建议为 TunnelDock。
+                {t("settings_view.tunnel_id_desc")}
               </p>
             </div>
 
@@ -148,7 +222,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs">
                 <label className="text-zinc-300 font-medium">
-                  Tunnel API Key (Restricted)
+                  {t("settings_view.api_key_label")}
                 </label>
                 <a
                   href="https://platform.openai.com/settings/organization/api-keys"
@@ -156,7 +230,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   rel="noreferrer"
                   className="text-emerald-400 hover:underline flex items-center gap-1 text-[11px]"
                 >
-                  <span>创建专属 Restricted Key</span>
+                  <span>{t("settings_view.open_platform_key_link")}</span>
                   <ArrowUpRight className="w-3 h-3" />
                 </a>
               </div>
@@ -164,11 +238,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="sk-..."
+                placeholder={t("settings_view.api_key_placeholder")}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-xs font-mono text-zinc-100 focus:outline-none focus:border-zinc-600"
               />
               <p className="text-[11px] text-zinc-500">
-                权限严格限制为: <span className="text-zinc-300 font-mono">Tunnels: Read, Use</span>。不要配置为全局 Admin 权限。
+                {t("settings_view.api_key_desc")}
               </p>
             </div>
           </div>
@@ -178,28 +252,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="p-5 rounded-lg bg-dark-card border border-zinc-800 space-y-4">
           <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
             <Server className="w-4 h-4 text-emerald-400" />
-            <span>本地监听与控制面参数</span>
+            <span>{t("settings_view.card_network_title")}</span>
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs text-zinc-300 font-medium">
-                健康检查监听端口 (Health Port)
+                {t("settings_view.health_port_label")}
               </label>
               <input
                 type="number"
+                min={0}
+                max={65535}
+                step={1}
                 value={healthPort}
-                onChange={(e) => setHealthPort(Number(e.target.value) || 8080)}
+                onChange={(e) => setHealthPort(Number(e.target.value))}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-xs font-mono text-zinc-100 focus:outline-none focus:border-zinc-600"
               />
               <p className="text-[11px] text-zinc-500">
-                默认 8080。本地守护进程将在 127.0.0.1:8080 暴露 /healthz 探针。
+                {t("settings_view.health_port_desc")}
               </p>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs text-zinc-300 font-medium">
-                OpenAI 控制面 Base URL
+                {t("settings_view.control_plane_label")}
               </label>
               <input
                 type="text"
@@ -208,7 +285,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 className="w-full bg-zinc-950/60 border border-zinc-800/80 rounded px-3 py-2 text-xs font-mono text-zinc-400 cursor-not-allowed"
               />
               <p className="text-[11px] text-zinc-500">
-                OpenAI 官方安全控制面地址。
+                {t("settings_view.control_plane_desc")}
               </p>
             </div>
           </div>
@@ -218,13 +295,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="p-5 rounded-lg bg-dark-card border border-zinc-800 space-y-3">
           <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
             <FolderOpen className="w-4 h-4 text-amber-400" />
-            <span>配置文件物理存储位置</span>
+            <span>{t("settings_view.card_storage_title")}</span>
           </h3>
 
           <div className="space-y-2 text-xs font-mono">
             <div className="p-2.5 rounded bg-zinc-950 border border-zinc-800 flex items-center justify-between">
               <div className="space-y-0.5 truncate pr-2">
-                <div className="text-zinc-500 text-[10px]">API Key 密钥文件:</div>
+                <div className="text-zinc-500 text-[10px]">
+                  {t("settings_view.key_file_label")}
+                </div>
                 <div className="text-zinc-300 truncate">
                   {settings?.key_file_path || "C:\\Users\\...\\.chappie\\tunnelkey.txt"}
                 </div>
@@ -235,14 +314,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   className="px-2 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-700 flex items-center gap-1 shrink-0"
                 >
                   <FolderOpen className="w-3 h-3" />
-                  <span>定位</span>
+                  <span>{t("settings_view.locate_btn")}</span>
                 </button>
               )}
             </div>
 
             <div className="p-2.5 rounded bg-zinc-950 border border-zinc-800 flex items-center justify-between">
               <div className="space-y-0.5 truncate pr-2">
-                <div className="text-zinc-500 text-[10px]">Otunnel Profile 描述文件:</div>
+                <div className="text-zinc-500 text-[10px]">
+                  {t("settings_view.profile_file_label")}
+                </div>
                 <div className="text-zinc-300 truncate">
                   %APPDATA%\tunnel-client\chappie.yaml
                 </div>
@@ -255,19 +336,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="p-5 rounded-lg bg-dark-card border border-zinc-800 space-y-3">
           <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200">
             <Info className="w-4 h-4 text-emerald-400" />
-            <span>官方最佳实践安全原则</span>
+            <span>{t("settings_view.card_principles_title")}</span>
           </div>
 
           <ul className="text-xs text-zinc-400 space-y-1.5 list-disc list-inside leading-relaxed">
-            <li>
-              <strong>不要以管理员 (Administrator) 身份运行</strong>：Pi 拥有当前系统用户的文件与命令执行权限。
-            </li>
-            <li>
-              <strong>精准 Session 绑定</strong>：在 ChatGPT 中始终使用 <code className="text-zinc-300 font-mono">sessions → cwd → sessionId → init</code> 绑定具体工程，切勿跨项目串线。
-            </li>
-            <li>
-              <strong>耗时任务后台化</strong>：编译大型工程、打包 Docker 镜像等超过 30 秒的命令，建议使用后台任务执行，避免 MCP 请求超时。
-            </li>
+            <li>{t("settings_view.principle_1")}</li>
+            <li>{t("settings_view.principle_2")}</li>
+            <li>{t("settings_view.principle_3")}</li>
           </ul>
         </div>
 
@@ -277,10 +352,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="space-y-1">
               <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                 <Tag className="w-4 h-4 text-emerald-400" />
-                <span>应用版本与软件更新</span>
+                <span>{t("settings_view.card_updates_title")}</span>
               </h3>
               <p className="text-xs text-zinc-500 leading-relaxed">
-                启动后自动检查 <span className="text-zinc-300 font-mono">t59688/tunneldock</span> 的 GitHub Release。更新包在应用内部下载，并在安装前验证 Tauri 更新签名。
+                {t("settings_view.card_updates_desc")}
               </p>
             </div>
 
@@ -311,49 +386,73 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               )}
               <span>
                 {updateState.stage === "checking"
-                  ? "正在检查"
+                  ? t("settings_view.checking_btn")
                   : updateState.stage === "available"
-                  ? `查看 v${updateState.latestVersion}`
+                  ? t("settings_view.view_version_btn", {
+                      version: updateState.latestVersion || "",
+                    })
                   : updateState.stage === "downloading"
-                  ? `下载 ${updateState.totalBytes ? `${updateState.progressPercent}%` : "中"}`
+                  ? updateState.totalBytes
+                    ? t("settings_view.downloading_percent_btn", {
+                        percent: updateState.progressPercent || 0,
+                      })
+                    : t("settings_view.downloading_plain_btn")
                   : updateState.stage === "installing"
-                  ? "正在安装"
-                  : "检查更新"}
+                  ? t("settings_view.installing_btn")
+                  : t("settings_view.check_updates_btn")}
               </span>
             </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px] font-mono">
             <div className="p-3 rounded bg-zinc-950 border border-zinc-800 space-y-1">
-              <div className="text-zinc-600">当前版本</div>
+              <div className="text-zinc-600">
+                {t("settings_view.version_current_label")}
+              </div>
               <div className="text-emerald-400 font-medium">v{APP_VERSION}</div>
             </div>
             <div className="p-3 rounded bg-zinc-950 border border-zinc-800 space-y-1">
-              <div className="text-zinc-600">更新状态</div>
-              <div className={updateState.stage === "error" ? "text-rose-400" : updateState.stage === "available" ? "text-amber-300" : "text-zinc-300"}>
+              <div className="text-zinc-600">
+                {t("settings_view.update_status_label")}
+              </div>
+              <div
+                className={
+                  updateState.stage === "error"
+                    ? "text-rose-400"
+                    : updateState.stage === "available"
+                    ? "text-amber-300"
+                    : "text-zinc-300"
+                }
+              >
                 {updateState.stage === "available"
-                  ? `发现 v${updateState.latestVersion}`
+                  ? t("settings_view.status_discovered", {
+                      version: updateState.latestVersion || "",
+                    })
                   : updateState.stage === "downloading"
-                  ? "后台下载中"
+                  ? t("settings_view.status_downloading_bg")
                   : updateState.stage === "installing"
-                  ? "安装中"
+                  ? t("settings_view.status_installing")
                   : updateState.stage === "installed"
-                  ? "已安装，重启后生效"
+                  ? t("settings_view.status_installed_reboot")
                   : updateState.stage === "error"
-                  ? "检查/更新失败"
+                  ? t("settings_view.status_failed")
                   : updateState.stage === "checking"
-                  ? "检查中"
-                  : "已启用自动检查"}
+                  ? t("settings_view.status_checking")
+                  : t("settings_view.status_auto_enabled")}
               </div>
             </div>
             <div className="p-3 rounded bg-zinc-950 border border-zinc-800 space-y-1">
-              <div className="text-zinc-600">Release 源</div>
-              <div className="text-zinc-300 truncate">github.com/t59688/tunneldock</div>
+              <div className="text-zinc-600">
+                {t("settings_view.release_source_label")}
+              </div>
+              <div className="text-zinc-300 truncate">
+                github.com/t59688/tunneldock
+              </div>
             </div>
           </div>
 
           <div className="text-[11px] text-zinc-600 leading-relaxed">
-            版本号仍以根目录 <code className="text-zinc-400 font-mono">version.json</code> 为单一真实来源；Release 工作流会校验 Git tag 与版本一致后生成三端更新资产、签名和 <code className="text-zinc-400 font-mono">latest.json</code>。
+            {t("settings_view.version_single_source_desc")}
           </div>
         </div>
       </div>

@@ -1,24 +1,29 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { CloseConfirmDialog } from "./CloseConfirmDialog";
+import { I18nProvider } from "../i18n";
 
 describe("CloseConfirmDialog", () => {
   it("renders an accessible themed choice between tray and exit", () => {
     const closedMarkup = renderToStaticMarkup(
-      <CloseConfirmDialog
-        open={false}
-        busy={false}
-        error={null}
-        onResolve={() => undefined}
-      />
+      <I18nProvider>
+        <CloseConfirmDialog
+          open={false}
+          busy={false}
+          error={null}
+          onResolve={() => undefined}
+        />
+      </I18nProvider>
     );
     const openMarkup = renderToStaticMarkup(
-      <CloseConfirmDialog
-        open
-        busy={false}
-        error={null}
-        onResolve={() => undefined}
-      />
+      <I18nProvider>
+        <CloseConfirmDialog
+          open
+          busy={false}
+          error={null}
+          onResolve={() => undefined}
+        />
+      </I18nProvider>
     );
 
     expect(closedMarkup).toBe("");
@@ -31,12 +36,14 @@ describe("CloseConfirmDialog", () => {
 
   it("shows action-neutral progress while resolving the choice", () => {
     const markup = renderToStaticMarkup(
-      <CloseConfirmDialog
-        open
-        busy
-        error={null}
-        onResolve={() => undefined}
-      />
+      <I18nProvider>
+        <CloseConfirmDialog
+          open
+          busy
+          error={null}
+          onResolve={() => undefined}
+        />
+      </I18nProvider>
     );
 
     expect(markup).toContain("正在处理关闭操作");

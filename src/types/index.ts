@@ -39,7 +39,8 @@ export interface OtunnelDaemonStatus {
   healthz_ok: boolean;
   readyz_ok: boolean;
   latency_ms: number | null;
-  listen_port: number;
+  listen_port: number | null;
+  health_base_url: string | null;
   tunnel_id: string | null;
   uptime_seconds: number | null;
 }
@@ -76,10 +77,13 @@ export interface McpCallRecord {
   total_tokens: number;
 }
 
+export type Locale = "zh-CN" | "en-US";
+
 export interface TunnelSettings {
   tunnel_id: string;
   api_key: string;
   key_file_path: string;
   health_port: number;
   profile_name: string;
+  locale: string;
 }

@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { AppUpdateState } from "../hooks/useAppUpdater";
+import { useTranslation } from "../i18n";
 
 interface UpdateDialogProps {
   open: boolean;
@@ -23,8 +24,8 @@ interface UpdateDialogProps {
   onInstall: () => void;
 }
 
-function formatBytes(bytes: number | null): string {
-  if (bytes === null || !Number.isFinite(bytes)) return "未知大小";
+function formatBytes(bytes: number | null, unknownText: string): string {
+  if (bytes === null || !Number.isFinite(bytes)) return unknownText;
   if (bytes < 1024) return `${bytes} B`;
   const units = ["KB", "MB", "GB"];
   let value = bytes / 1024;
@@ -36,11 +37,11 @@ function formatBytes(bytes: number | null): string {
   return `${value.toFixed(value >= 100 ? 0 : value >= 10 ? 1 : 2)} ${unit}`;
 }
 
-function formatDate(value: string | null): string {
-  if (!value) return "发布时间未知";
+function formatDate(value: string | null, unknownText: string, locale: string): string {
+  if (!value) return unknownText;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString(locale, {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -56,6 +57,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
   onCheck,
   onInstall,
 }) => {
+  const { t, locale } = useTranslation();
   const locked = state.stage === "installing";
 
   useEffect(() => {
@@ -81,7 +83,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
             onClick={onClose}
             disabled={locked}
             className="absolute right-4 top-4 p-1.5 rounded-md text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800/80 transition-colors disabled:opacity-30"
-            aria-label="关闭更新窗口"
+            aria-label={t("update_dialog.aria_close")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -98,7 +100,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-semibold text-zinc-100">TunnelDock 软件更新</h2>
+                <h2 className="text-base font-semibold text-zinc-100">TunnelDock</h2>
                 {hasUpdate && (
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-emerald-800/70 bg-emerald-950/50 text-emerald-300">
                     v{state.latestVersion}
@@ -106,7 +108,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
                 )}
               </div>
               <p className="mt-1 text-xs text-zinc-500">
-                更新源：GitHub Releases · t59688/tunneldock · 安装包由 Tauri 签名校验
+                GitHub Releases · t59688/tunneldock
               </p>
             </div>
           </div>
@@ -117,8 +119,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
             <div className="py-10 flex flex-col items-center justify-center gap-3 text-center">
               <LoaderCircle className="w-7 h-7 text-emerald-400 animate-spin" />
               <div>
-                <div className="text-sm font-medium text-zinc-200">正在检查 GitHub 最新版本</div>
-                <div className="text-xs text-zinc-500 mt-1">正在读取 Release 元数据与签名清单...</div>
+                <div className="text-sm font-medium text-zinc-200">{t("update_dialog.status_checking")}</div>
               </div>
             </div>
           )}
@@ -129,8 +130,8 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
                 <CheckCircle2 className="w-6 h-6 text-emerald-400" />
               </div>
               <div>
-                <div className="text-sm font-semibold text-zinc-100">已经是最新版本</div>
-                <div className="text-xs text-zinc-500 mt-1 font-mono">当前版本 v{state.currentVersion}</div>
+                <div className="text-sm font-semibold text-zinc-100">{t("update_dialog.badge_uptodate")}</div>
+                <div className="text-xs text-zinc-500 mt-1 font-mono">v{state.currentVersion}</div>
               </div>
             </div>
           )}
@@ -140,9 +141,9 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
               <div className="flex items-start gap-3">
                 <AlertTriangle className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />
                 <div className="min-w-0">
-                  <div className="text-xs font-semibold text-rose-300">更新流程未完成</div>
+                  <div className="text-xs font-semibold text-rose-300">{t("update_dialog.badge_error")}</div>
                   <div className="text-xs text-rose-200/75 mt-1 break-words leading-relaxed">
-                    {state.errorMessage || "未知错误"}
+                    {state.errorMessage || t("common.unknown")}
                   </div>
                 </div>
               </div>
@@ -153,12 +154,12 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
             <>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 rounded-lg border border-zinc-800 bg-zinc-950/70 px-4 py-3">
                 <div>
-                  <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-mono">当前版本</div>
+                  <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-mono">{t("update_dialog.current_label")}</div>
                   <div className="text-sm font-mono text-zinc-300 mt-0.5">v{state.currentVersion}</div>
                 </div>
                 <ArrowRight className="w-4 h-4 text-zinc-600" />
                 <div className="text-right">
-                  <div className="text-[10px] uppercase tracking-wider text-emerald-600 font-mono">目标版本</div>
+                  <div className="text-[10px] uppercase tracking-wider text-emerald-600 font-mono">{t("update_dialog.latest_tag")}</div>
                   <div className="text-sm font-mono text-emerald-400 mt-0.5">v{state.latestVersion}</div>
                 </div>
               </div>
@@ -166,19 +167,19 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
               <div className="flex items-center gap-4 text-[11px] text-zinc-500">
                 <div className="flex items-center gap-1.5">
                   <CalendarDays className="w-3.5 h-3.5" />
-                  <span>{formatDate(state.releaseDate)}</span>
+                  <span>{formatDate(state.releaseDate, t("update_dialog.unknown_date"), locale)}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>签名校验后才会安装</span>
+                  <span>{t("update_dialog.checksum_verified")}</span>
                 </div>
               </div>
 
               {state.stage === "available" && (
                 <div className="space-y-2">
-                  <div className="text-xs font-semibold text-zinc-300">本次更新日志</div>
+                  <div className="text-xs font-semibold text-zinc-300">{t("update_dialog.notes_title")}</div>
                   <div className="max-h-56 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950/70 p-4 text-xs leading-6 text-zinc-400 whitespace-pre-wrap select-text">
-                    {state.releaseNotes}
+                    {state.releaseNotes || t("update_dialog.notes_empty")}
                   </div>
                 </div>
               )}
@@ -188,10 +189,10 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-xs text-zinc-300">
                       <Download className="w-4 h-4 text-emerald-400" />
-                      <span>正在应用内后台下载更新包</span>
+                      <span>{t("update_dialog.status_downloading")}</span>
                     </div>
                     <span className="font-mono text-xs text-emerald-400">
-                      {state.totalBytes ? `${state.progressPercent}%` : "下载中"}
+                      {state.totalBytes ? `${state.progressPercent}%` : t("header.downloading_plain")}
                     </span>
                   </div>
                   <div className="h-2 rounded-full bg-zinc-800 overflow-hidden">
@@ -201,12 +202,9 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
                     />
                   </div>
                   <div className="flex items-center justify-between text-[11px] text-zinc-500 font-mono">
-                    <span>{formatBytes(state.downloadedBytes)} 已下载</span>
-                    <span>{state.totalBytes ? `共 ${formatBytes(state.totalBytes)}` : "正在获取文件大小..."}</span>
+                    <span>{formatBytes(state.downloadedBytes, t("update_dialog.unknown_size"))}</span>
+                    <span>{state.totalBytes ? formatBytes(state.totalBytes, t("update_dialog.unknown_size")) : ""}</span>
                   </div>
-                  <p className="text-[11px] text-zinc-600">
-                    可以关闭此窗口继续使用软件；顶部更新状态会持续显示下载进度。
-                  </p>
                 </div>
               )}
 
@@ -214,10 +212,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
                 <div className="py-7 rounded-lg border border-emerald-900/50 bg-emerald-950/20 flex flex-col items-center text-center gap-3">
                   <LoaderCircle className="w-7 h-7 text-emerald-400 animate-spin" />
                   <div>
-                    <div className="text-sm font-semibold text-zinc-100">下载完成，正在启动安装</div>
-                    <div className="text-xs text-zinc-500 mt-1 max-w-md">
-                      Windows 会启动被动安装程序并自动退出当前应用；macOS / Linux 完成替换后将在下次启动生效。
-                    </div>
+                    <div className="text-sm font-semibold text-zinc-100">{t("update_dialog.status_installing")}</div>
                   </div>
                 </div>
               )}
@@ -226,10 +221,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
                 <div className="py-7 rounded-lg border border-emerald-900/50 bg-emerald-950/20 flex flex-col items-center text-center gap-3">
                   <CheckCircle2 className="w-7 h-7 text-emerald-400" />
                   <div>
-                    <div className="text-sm font-semibold text-zinc-100">更新已经安装完成</div>
-                    <div className="text-xs text-zinc-500 mt-1">
-                      新版本将在下次启动 TunnelDock 时生效。
-                    </div>
+                    <div className="text-sm font-semibold text-zinc-100">{t("update_dialog.status_installed")}</div>
                   </div>
                 </div>
               )}
@@ -240,8 +232,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
             <div className="py-7 flex flex-col items-center text-center gap-3">
               <Clock3 className="w-6 h-6 text-zinc-500" />
               <div>
-                <div className="text-sm font-medium text-zinc-200">尚未执行更新检查</div>
-                <div className="text-xs text-zinc-500 mt-1">当前版本 v{state.currentVersion}</div>
+                <div className="text-sm font-medium text-zinc-200">v{state.currentVersion}</div>
               </div>
             </div>
           )}
@@ -249,7 +240,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
 
         <div className="px-6 py-4 border-t border-zinc-800 bg-zinc-950/50 flex items-center justify-between gap-3">
           <div className="text-[11px] text-zinc-600 min-w-0">
-            {state.lastCheckedAt ? `上次检查：${new Date(state.lastCheckedAt).toLocaleTimeString()}` : "启动后会自动静默检查一次"}
+            {state.lastCheckedAt ? `${new Date(state.lastCheckedAt).toLocaleTimeString()}` : ""}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {!locked && (
@@ -258,7 +249,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
                 onClick={onClose}
                 className="px-3 py-1.5 rounded-md text-xs text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 border border-zinc-800 transition-colors"
               >
-                {state.stage === "downloading" ? "后台下载" : "稍后"}
+                {t("update_dialog.btn_close")}
               </button>
             )}
 
@@ -270,7 +261,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
                 className="px-3.5 py-1.5 rounded-md text-xs font-medium bg-zinc-100 text-zinc-950 hover:bg-white disabled:opacity-50 flex items-center gap-1.5"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>重新检查</span>
+                <span>{t("update_dialog.btn_recheck")}</span>
               </button>
             )}
 
@@ -281,7 +272,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
                 className="px-4 py-1.5 rounded-md text-xs font-semibold bg-emerald-500 text-emerald-950 hover:bg-emerald-400 transition-colors flex items-center gap-1.5"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>下载并安装</span>
+                <span>{t("update_dialog.btn_install")}</span>
               </button>
             )}
 
@@ -291,7 +282,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
                 onClick={onClose}
                 className="px-4 py-1.5 rounded-md text-xs font-semibold bg-emerald-500 text-emerald-950 hover:bg-emerald-400 transition-colors"
               >
-                完成
+                {t("common.confirm")}
               </button>
             )}
           </div>
